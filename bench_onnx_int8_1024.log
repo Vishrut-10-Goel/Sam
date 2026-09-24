@@ -1,0 +1,8 @@
+model: Alibaba-NLP/gte-modernbert-base [onnx/model_int8.onnx]   max_seq_length: 1024   batch size: 8
+onnxruntime 1.30.0 on CPU (12 logical cores)
+model load: 2 s
+sanity: mean diag sim 0.686 vs off-diag 0.534; top-1 correct 16/20
+queries: 150 texts (73,969 tok) in 92.1 s -> full set est. 37.2 min
+corpus: 300 texts (55,025 tok) in 57.7 s -> full set est. 30.4 min
+
+ESTIMATED full encode time: 67.6 min (+ ~1-2 min load/scoring)

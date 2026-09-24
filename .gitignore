@@ -1,0 +1,52 @@
+# Virtual environments
+venv/
+venv-*/
+.venv/
+env/
+
+# Python bytecode / build
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# HuggingFace / model caches (if redirected into the project via HF_HOME etc.)
+.cache/
+hf_cache/
+huggingface/
+transformers_modules/
+models/
+checkpoints/
+*.safetensors
+*.bin
+*.onnx
+*.pt
+*.pth
+
+# MTEB outputs
+results/
+mteb_results/
+predictions/
+
+# Benchmark / evaluation logs (the ONNX CPU benchmarks are kept: the README cites them)
+*.log
+!bench_onnx*.log
+
+# Generated data artifacts
+*.npy
+*.npz
+embeddings/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
