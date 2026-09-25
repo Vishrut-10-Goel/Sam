@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import onnxruntime as ort
@@ -78,8 +79,16 @@ class OnnxEncoder:
         )["input_ids"]
         return [len(ids) for ids in encoded]
 
-    def encode(self, texts: list[str], batch_size: int | None = None) -> np.ndarray:
-        """Embed texts as L2-normalized float32 vectors of shape (len(texts), dim), in input order."""
+    def encode(
+        self,
+        texts: list[str],
+        batch_size: int | None = None,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> np.ndarray:
+        """Embed texts as L2-normalized float32 vectors of shape (len(texts), dim), in input order.
+
+        progress, if given, is called as progress(done, total) after each batch.
+        """
         texts = list(texts)
         if not texts:
             return np.empty((0, self.dim), dtype=np.float32)
@@ -101,6 +110,8 @@ class OnnxEncoder:
                 mask[row, : len(input_ids[i])] = 1
             hidden = self.session.run(["last_hidden_state"], {"input_ids": ids, "attention_mask": mask})[0]
             out[idx] = hidden[:, 0]  # CLS pooling
+            if progress is not None:
+                progress(start + len(idx), len(texts))
 
         norms = np.linalg.norm(out, axis=1, keepdims=True)
         return out / np.maximum(norms, 1e-12)
