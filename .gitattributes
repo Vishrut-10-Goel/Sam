@@ -1,2 +1,7 @@
 # Index files are checksummed in their manifest: never rewrite line endings in them.
 indexes/** -text
+# Docker files are parsed on Linux: keep LF endings even in Windows checkouts (core.autocrlf), since a CR after
+# a line-continuation backslash breaks RUN steps.
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+*.sh text eol=lf
