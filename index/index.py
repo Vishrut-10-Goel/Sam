@@ -104,10 +104,14 @@ def chunking_config(name: str, encoder, overlap_tokens: int = DEFAULT_OVERLAP_TO
     """The full chunking configuration for a loader's CHUNKING name, as recorded in the manifest.
 
     header is recorded only when on, so indexes built before headers existed keep their exact configuration.
+    For "ast" the chunk-size targets are recorded too, so changing them forces a rebuild rather than mixing sizes.
     """
     if name == "none":
         return {"name": "none"}
     config = {"name": name, "max_length": encoder.max_length, "overlap_tokens": overlap_tokens}
+    if name == "ast":
+        from chunking.ast_chunks import MIN_TOKENS, TARGET_TOKENS
+        config.update(target_tokens=TARGET_TOKENS, min_tokens=MIN_TOKENS)
     if header:
         config["header"] = True
     return config

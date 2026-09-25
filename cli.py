@@ -1,10 +1,12 @@
 """Command-line interface for the code-retrieval system.
 
-  python cli.py index <path> [--out DIR] [--rebuild] [--source-only] [--no-header]
+  python cli.py index <path> [--out DIR] [--rebuild] [--source-only] [--no-header] [--chunking {windows,ast}]
       Index a folder of source files. If DIR already holds an index for this encoder, it is updated
       incrementally: only new and changed files are re-embedded, deleted files are dropped.
       Each chunk is embedded with a header naming its file and enclosing classes/functions (--no-header to
       turn off); --source-only skips test and docs files (see loaders.directory.file_kind).
+      --chunking ast (opt-in) splits Python files at function/class boundaries (chunking.ast_chunks)
+      instead of 1024-token line windows; other files still use windows.
       Default DIR: indexes/<folder name>-<hash8>, the hash of the folder's absolute path, so folders that
       share a name never share an index.
   python cli.py query "<text>" --index DIR [--top-k N] [--json] [--code-only | --kind-penalty X]
@@ -119,7 +121,7 @@ def cmd_index(args) -> int:
                                                         on_skip=lambda _, reason: skipped.update([reason]))
             if out not in Path(d.metadata["source_path"]).parents]
     log(f"{root}: {len(docs):,} files" + (f"; skipped {dict(skipped)}" if skipped else ""))
-    chunking = chunking_config(loaders.directory.CHUNKING, encoder, header=not args.no_header)
+    chunking = chunking_config(args.chunking, encoder, header=not args.no_header)
     source = {"kind": "directory", "root": str(root)}
 
     if (out / MANIFEST).exists() and not args.rebuild:
@@ -336,6 +338,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--source-only", action="store_true", help="skip test and docs files (index code only)")
     p.add_argument("--no-header", action="store_true",
                    help="embed chunks without the file path / class / function header")
+    p.add_argument("--chunking", choices=("windows", "ast"), default=loaders.directory.CHUNKING,
+                   help="windows: token-budgeted line windows (default); ast: function/class-level chunks for "
+                        "Python files, windows for everything else")
 
     p = sub.add_parser("query", help="search an index")
     p.add_argument("text", nargs="?", help="natural-language or code query (optional with --interactive)")

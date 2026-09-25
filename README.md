@@ -213,6 +213,8 @@ With the CPU environment (`venv`) active, from the repository root:
 # incrementally: only new and changed files are re-embedded. --rebuild starts from scratch.
 # --source-only skips test and docs files (faster on large repos); --no-header embeds chunks without the
 # file path / class / function header.
+# --chunking ast (experimental, opt-in) splits Python files at function/class boundaries (~200-500 tokens)
+# instead of 1024-token line windows; other files keep windows. Not yet measured for retrieval quality.
 python cli.py index D:\path\to\repo
 python cli.py index D:\path\to\repo --out indexes\myrepo
 

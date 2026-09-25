@@ -99,8 +99,13 @@ Changes for folder indexes only (apps stays unchunked, so P0 is unaffected):
    them, `index --source-only` skips them. Strict top-1 5/10 -> 8/10, MRR 0.633 -> 0.850.
 2. [done] Context header embedded with each chunk: file path + overlapping Python classes/functions (ast).
    Top-1 unchanged (8/10), right file in top 3 for 10/10, MRR 0.850 -> 0.867, ~5% more chunks.
-3. **Next: AST chunking.** Function/class-level chunks (Python `ast`; tree-sitter for other languages),
-   ~200-500 tokens, falling back to line windows for oversized units and non-code files. Targets the two
-   remaining #3 answers (Q6, Q10), coarse ~90-line citations, and indexing cost (43 min for Scrapy).
-4. Measure every change against the same pre-registered Scrapy queries before keeping it; add fresh queries
-   too, since the current ten have now been used to choose the weighting penalty.
+3. [implemented, opt-in, not yet measured] AST chunking: `cli.py index --chunking ast` (chunking/ast_chunks.py).
+   Python files split at function/class boundaries (~200-500 tokens, small neighbours merged, big classes split
+   per method, oversized units fall back to 500-token line windows); other files use the default windows.
+   Default stays `windows`. Mechanical checks (2026-09-26, experiments/ast_chunk_stats.py): zero invariant
+   problems on Scrapy, requests and express; Scrapy Python chunks p50 267 tokens (windows: 944), none over 500,
+   9% fewer tokens embedded; requests indexes in 4.9 min with ast vs 6.0 min with windows.
+   **Not measured for quality:** the ten Scrapy questions were used to pick the kind penalty, so they are spent.
+   Next: fresh pre-registered questions (written by the user), then windows vs ast on them.
+4. Measure every change on pre-registered questions before keeping it; never reuse questions that were used to
+   choose a setting.

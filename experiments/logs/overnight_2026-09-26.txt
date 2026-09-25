@@ -1,0 +1,43 @@
+== 01:20:31 1. demo indexes (defaults: windows chunking, headers on)
+D:\prism-demo\scrapy: 654 files; skipped {'minified': 2, 'binary': 30, 'empty': 19, 'not_utf8': 3}
+built: 654 files, 2,097 chunks
+saved D:\prism-hackathon\indexes\scrapy-6656642c in 2556.3 s
+INDEX_TIME scrapy 2559 s
+D:\prism-demo\requests: 120 files; skipped {'empty': 3, 'binary': 5, 'too_large': 1, 'minified': 1}
+built: 120 files, 319 chunks
+saved D:\prism-hackathon\indexes\requests-1d73c087 in 354.9 s
+INDEX_TIME requests 357 s
+D:\prism-demo\express: 211 files; skipped {'empty': 3}
+built: 211 files, 402 chunks
+saved D:\prism-hackathon\indexes\express-d6a406cf in 377.6 s
+INDEX_TIME express 378 s
+== 02:15:25 2. test suite
+test_loaders_chunking: 19/19 passed 
+test_index: 7/7 passed 
+test_retrieval: 8/8 passed 
+test_eval: 4/4 passed 
+test_cli: 11/11 passed 
+test_file_hash: 3/3 passed 
+test_ast_chunks: 7/7 passed 
+== 02:17:23 3a. AST chunking statistics vs windows (no embedding)
+scrapy: 654 files (492 Python), checked in 24 s
+  Python chunks  windows: 1,437  tokens p50  944  p90  955  max 956
+                 ast:     3,525  tokens p50  267  p90  454  max 500  (chunks over 500 tokens: 0)
+  total Python tokens embedded  windows 1,105,610  ast 1,003,915
+  invariant problems: 0
+requests: 120 files (36 Python), checked in 3 s
+  Python chunks  windows:   161  tokens p50  948  p90  955  max 956
+                 ast:       397  tokens p50  286  p90  490  max 500  (chunks over 500 tokens: 0)
+  total Python tokens embedded  windows 134,283  ast 121,797
+  invariant problems: 0
+express: 211 files (0 Python), checked in 3 s
+  invariant problems: 0
+== 02:18:03 3b. end-to-end: cli.py index --chunking ast (requests), then a query
+D:\prism-demo\requests: 120 files; skipped {'empty': 3, 'binary': 5, 'too_large': 1, 'minified': 1}
+built: 120 files, 555 chunks
+saved D:\prism-hackathon\indexes\requests-ast in 291.2 s
+INDEX_TIME requests-ast 293 s
+ 1. src/requests/sessions.py:132-153   score 0.7220
+ 2. src/requests/models.py:857-882   score 0.6679
+ 3. src/requests/auth.py:268-272   score 0.6653
+== 02:23:05 done

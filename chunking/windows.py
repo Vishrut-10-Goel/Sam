@@ -31,7 +31,7 @@ HEADER_TOKENS = 64  # reserved per window when headers are on
 _HEADER_SLACK = 2   # tokens may merge differently where the header meets the text
 
 
-def _python_definitions(text: str) -> list[tuple[int, int, str]]:
+def python_definitions(text: str) -> list[tuple[int, int, str]]:
     """(first line, last line, qualified name) of every class and function, in source order; [] if unparsable."""
     try:
         tree = ast.parse(text)
@@ -53,7 +53,7 @@ def _python_definitions(text: str) -> list[tuple[int, int, str]]:
     return sorted(found)
 
 
-def _header(doc_id: str, definitions: list[tuple[int, int, str]], first: int, last: int, tokenizer) -> str:
+def context_header(doc_id: str, definitions: list[tuple[int, int, str]], first: int, last: int, tokenizer) -> str:
     """Header for the window of lines first..last (1-based, inclusive), at most HEADER_TOKENS tokens."""
     def fits(text: str) -> bool:
         return len(tokenizer(text, add_special_tokens=False)["input_ids"]) <= HEADER_TOKENS
@@ -96,7 +96,7 @@ def chunk_windows(
     if header:
         budget -= HEADER_TOKENS + _HEADER_SLACK
         if doc.id.endswith((".py", ".pyi")):
-            definitions = _python_definitions(doc.text)
+            definitions = python_definitions(doc.text)
     if not 0 <= overlap_tokens < budget:
         raise ValueError(f"overlap_tokens must be in [0, {budget}), got {overlap_tokens}")
     counts = _line_token_counts(lines, tokenizer)
@@ -123,7 +123,7 @@ def chunk_windows(
             text="".join(lines[start:stop]),
             start_line=start + 1,
             end_line=stop,
-            header=_header(doc.id, definitions, start + 1, stop, tokenizer) if header else "",
+            header=context_header(doc.id, definitions, start + 1, stop, tokenizer) if header else "",
         ))
         if stop == len(lines):
             return chunks
