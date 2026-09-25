@@ -112,7 +112,8 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
   card.
 - The CPU submission's other MTEB metrics: NDCG@1 0.44037, Recall@10 0.72669, Recall@100 0.91687.
 - **CPU encode time, ONNX vs PyTorch** (timing sample at 1024 tokens, batch size 4, extrapolated to the full encode):
-  onnxruntime fp32 ~77.6 min (`bench_onnx_fp32_1024.log`); PyTorch fp32 _pending_ (`bench_torch_fp32_1024.log`).
+  onnxruntime fp32 ~77.6 min (`bench_onnx_fp32_1024.log`) vs PyTorch fp32 ~97.1 min: onnxruntime is ~20% faster,
+  with identical sanity-check similarities (0.725 matched vs 0.454 mismatched, 17/20 top-1).
 - **Building the prebuilt apps index** (`python -m index.build_apps`): _pending_.
 
 **P1: retrieval across versions** (the real model, indexing this repository's code):
