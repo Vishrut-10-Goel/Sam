@@ -162,7 +162,7 @@ venv\Scripts\Activate.ps1          # macOS/Linux: source venv/bin/activate
 
 # CPU-only PyTorch first, so nothing pulls in the CUDA build
 pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt   # constraints.txt locks transitive dependencies too
 ```
 
 ### Optional GPU environment (`venv-gpu`, for model experimentation only)

@@ -1,0 +1,70 @@
+# Builds the Docker image on Linux and checks it works: the model-free test suite, then a real index + query
+# with the baked-in model, all with networking disabled (the image must run offline).
+name: docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      IMAGE: prism-retrieval:ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ${{ env.IMAGE }}
+          # Reuse layers (torch, dependencies, the ~570 MB model download) across runs.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image size
+        run: docker image ls "$IMAGE"
+
+      - name: CLI help
+        run: docker run --rm --network none "$IMAGE" --help
+
+      - name: Tests (no model load)
+        run: |
+          for t in test_loaders_chunking test_index test_retrieval test_eval test_cli test_file_hash; do
+            echo "::group::$t"
+            docker run --rm --network none --entrypoint python "$IMAGE" -m tests.$t
+            echo "::endgroup::"
+          done
+
+      - name: Index and query with the real model, offline
+        run: |
+          docker run --rm --network none --entrypoint sh "$IMAGE" -c '
+            set -e
+            python cli.py index /app/loaders --out /tmp/idx
+            python cli.py query "respect gitignore negation patterns" --index /tmp/idx --top-k 2
+            python cli.py query "respect gitignore negation patterns" --index /tmp/idx --top-k 1 --json \
+              | python -c "import json, sys; rows = json.load(sys.stdin); assert rows and rows[0][\"snippet\"][\"status\"] == \"ok\", rows; print(\"top hit:\", rows[0][\"doc_id\"])"
+          '
+
+      - name: Real-pipeline apps eval smoke test (only if the prebuilt index is committed)
+        run: |
+          if [ -f indexes/apps/manifest.json ]; then
+            docker run --rm --network none "$IMAGE" eval-apps --limit 20 --output /tmp/apps.json
+          else
+            echo "indexes/apps not committed yet: skipped (building it takes ~40 min)"
+          fi

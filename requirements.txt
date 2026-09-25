@@ -1,6 +1,7 @@
 # CPU environment (venv). Install PyTorch first from the CPU index so nothing pulls in the CUDA build:
 #   pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
-#   pip install -r requirements.txt
+#   pip install -r requirements.txt -c constraints.txt
+# constraints.txt locks every transitive dependency too; this file lists only what the code imports.
 # PyTorch and sentence-transformers are only needed for the parity test, baselines and benchmarks;
 # the retrieval system itself runs on onnxruntime.
 mteb==2.21.8

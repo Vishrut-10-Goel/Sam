@@ -22,8 +22,9 @@ WORKDIR /app
 # (several GB). PyTorch is only used by the parity test, baselines and benchmarks; retrieval runs on onnxruntime.
 RUN pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# constraints.txt locks every transitive dependency to the versions the test suite passed with.
+COPY requirements.txt constraints.txt ./
+RUN pip install -r requirements.txt -c constraints.txt
 
 # Download the model (ONNX export + tokenizer) and the AppsRetrieval dataset into the image. Only the code
 # these downloads depend on is copied first, so ordinary code changes do not re-download them.
