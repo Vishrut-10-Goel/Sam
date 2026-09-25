@@ -5,6 +5,18 @@
 A general code-retrieval system. The apps dataset is one supported input among others; it must also index an
 arbitrary folder of source files. Encoder is `embedding/onnx_encoder.py` (fp32 ONNX, max 1024, CPU).
 
+## Hackathon submission goals
+
+**P0 — Retrieval accuracy.** Screened competitively on NDCG@10 and MRR over the CoIR AppsRetrieval test
+split, submitted as an MTEB results JSON attached to a GitHub release tagged `PRISM_GENAI_HACKATHON_Y2026`.
+
+**P1 — Retrieval across versions.** Codebases change constantly. The system must rebuild indexes and caches
+for any version or change in reasonable time. Evaluated hands-on, not by the JSON. This is what index/'s
+incremental update and the stale-snippet check serve.
+
+**Bonus — Evolutionary retrieval.** Retrieve across all versions of the snippets, not just the current one.
+Hard because near-identical versions are difficult to rank against each other. Not started.
+
 ## Layout
 
 ```
@@ -57,4 +69,4 @@ corpus or encoder actually changes, never intermediate development rebuilds.
 
 ## Steps 4–6
 
-retrieval/, the real-pipeline apps eval, and cli.py, per the layout above.
+Step 4 (retrieval/) and step 5 (real-pipeline apps eval, eval/apps_pipeline.py) done. Step 6: cli.py, per the layout above.
