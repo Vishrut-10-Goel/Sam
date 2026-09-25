@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -27,6 +28,42 @@ DEFAULT_MODEL = "Alibaba-NLP/gte-modernbert-base"
 DEFAULT_ONNX_FILE = "onnx/model.onnx"
 DEFAULT_MAX_LENGTH = 1024
 DEFAULT_BATCH_SIZE = 4  # fastest fp32 setting measured on CPU; also keeps peak RAM around 3 GB
+# Where file hashes are cached between runs (see file_sha256). Override with PRISM_CACHE_DIR.
+CACHE_DIR = Path(os.environ.get("PRISM_CACHE_DIR", Path.home() / ".cache" / "prism-code-retrieval"))
+
+
+def file_sha256(path: Path, cache_dir: Path | None = None) -> str:
+    """sha256 of a file, cached across processes by (resolved path, size, mtime).
+
+    Hashing the ~570 MB ONNX model takes about a second, paid by every fresh process that checks an index's
+    fingerprint (every CLI query). A size + modification-time match is the same staleness test make and git
+    use; any rewrite of the file changes its mtime and forces a re-hash.
+    """
+    path = Path(path).resolve()
+    cache_file = (cache_dir or CACHE_DIR) / "sha256_cache.json"
+    stat = path.stat()
+    key, stamp = str(path), {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+    try:
+        cache = json.loads(cache_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cache = {}
+    entry = cache.get(key)
+    if isinstance(entry, dict) and {k: entry.get(k) for k in stamp} == stamp and "sha256" in entry:
+        return entry["sha256"]
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    cache[key] = {**stamp, "sha256": digest.hexdigest()}
+    try:  # best effort: a read-only or missing cache dir only costs the re-hash next time
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache_file.with_name(f"{cache_file.name}.tmp-{os.getpid()}")
+        tmp.write_text(json.dumps(cache, indent=1), encoding="utf-8")
+        os.replace(tmp, cache_file)
+    except OSError:
+        pass
+    return cache[key]["sha256"]
 
 
 class OnnxEncoder:
@@ -120,11 +157,7 @@ class OnnxEncoder:
         """Everything that determines the embeddings. An index built under a different fingerprint
         is not comparable with this encoder's query embeddings."""
         if self._onnx_sha256 is None:
-            digest = hashlib.sha256()
-            with open(self._onnx_path, "rb") as f:
-                for block in iter(lambda: f.read(1 << 20), b""):
-                    digest.update(block)
-            self._onnx_sha256 = digest.hexdigest()
+            self._onnx_sha256 = file_sha256(self._onnx_path)
         return {
             "model_name": self.model_name,
             "onnx_file": self.onnx_file,

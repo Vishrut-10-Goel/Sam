@@ -3,7 +3,8 @@
   python cli.py index <path> [--out DIR] [--rebuild]
       Index a folder of source files. If DIR already holds an index for this encoder, it is updated
       incrementally: only new and changed files are re-embedded, deleted files are dropped.
-      Default DIR: indexes/<folder name>.
+      Default DIR: indexes/<folder name>-<hash8>, the hash of the folder's absolute path, so folders that
+      share a name never share an index.
   python cli.py query "<text>" --index DIR [--top-k N] [--json]
       Search an index (a folder index, or indexes/apps). Snippets are read from the source and flagged
       "stale" if it changed since indexing (re-run `index` to refresh).
@@ -15,7 +16,9 @@ Results go to stdout; progress and summaries go to stderr, so --json output can 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -37,6 +40,12 @@ def _make_encoder():
     return OnnxEncoder()
 
 
+def default_index_dir(root: Path) -> Path:
+    """indexes/<name>-<hash8>. normcase: Windows paths are case-insensitive, so D:\Repo and d:\repo are one folder."""
+    digest = hashlib.sha256(os.path.normcase(str(root.resolve())).encode("utf-8")).hexdigest()[:8]
+    return Path("indexes") / f"{root.resolve().name}-{digest}"
+
+
 def _progress(label: str):
     t0 = last = time.perf_counter()
 
@@ -55,7 +64,7 @@ def cmd_index(args) -> int:
     if not root.is_dir():
         log(f"error: {root} is not a directory")
         return 2
-    out = (args.out or Path("indexes") / root.name).resolve()
+    out = (args.out or default_index_dir(root)).resolve()
     start = time.perf_counter()
     encoder = _make_encoder()
 
@@ -155,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("index", help="index (or incrementally update the index of) a folder of source files")
     p.add_argument("path", help="folder to index")
-    p.add_argument("--out", type=Path, help="index directory (default: indexes/<folder name>)")
+    p.add_argument("--out", type=Path, help="index directory (default: indexes/<folder name>-<hash8>)")
     p.add_argument("--rebuild", action="store_true", help="rebuild from scratch instead of updating")
 
     p = sub.add_parser("query", help="search an index")

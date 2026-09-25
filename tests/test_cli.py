@@ -8,6 +8,7 @@ Run from the project root:  python -m tests.test_cli
 import contextlib
 import io
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -85,9 +86,23 @@ def test_default_out_and_index_inside_root_excludes_itself():
             import os
             os.chdir(tmp)
             code, _, err = _run("index", "repo")
-            assert code == 0 and Path(tmp, "indexes", "repo", "manifest.json").exists(), err
+            [made] = Path(tmp, "indexes").iterdir()
+            assert code == 0 and (made / "manifest.json").exists(), err
+            assert made.name.startswith("repo-") and len(made.name) == len("repo-") + 8, made.name
         finally:
             os.chdir(cwd)
+
+
+def test_default_index_dir_distinguishes_same_named_folders():
+    with tempfile.TemporaryDirectory() as tmp:
+        a, b = Path(tmp, "x", "repo"), Path(tmp, "y", "repo")
+        a.mkdir(parents=True), b.mkdir(parents=True)
+        assert cli.default_index_dir(a) != cli.default_index_dir(b)
+        assert cli.default_index_dir(a) == cli.default_index_dir(Path(tmp, "x", ".", "repo"))
+        assert cli.default_index_dir(a).name.startswith("repo-")
+        # Windows paths are case-insensitive: the same folder spelled differently maps to the same index.
+        if os.name == "nt":
+            assert cli.default_index_dir(Path(str(a).upper())) == cli.default_index_dir(a)
 
 
 def test_errors():
