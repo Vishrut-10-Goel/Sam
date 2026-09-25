@@ -51,5 +51,8 @@ embeddings/
 .DS_Store
 Thumbs.db
 
-# Prebuilt indexes are committed (PLAN.md step 3), so their embeddings are an exception to *.npy above
-!indexes/**/*.npy
+# Only the prebuilt apps index is committed (PLAN.md step 3); folder indexes built with `cli.py index`
+# (default indexes/<folder name>) stay local. Its embeddings are an exception to *.npy above.
+indexes/*
+!indexes/apps/
+!indexes/apps/*.npy
