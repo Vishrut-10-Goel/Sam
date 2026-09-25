@@ -1,15 +1,19 @@
 """Command-line interface for the code-retrieval system.
 
-  python cli.py index <path> [--out DIR] [--rebuild]
+  python cli.py index <path> [--out DIR] [--rebuild] [--source-only] [--no-header]
       Index a folder of source files. If DIR already holds an index for this encoder, it is updated
       incrementally: only new and changed files are re-embedded, deleted files are dropped.
+      Each chunk is embedded with a header naming its file and enclosing classes/functions (--no-header to
+      turn off); --source-only skips test and docs files (see loaders.directory.file_kind).
       Default DIR: indexes/<folder name>-<hash8>, the hash of the folder's absolute path, so folders that
       share a name never share an index.
-  python cli.py query "<text>" --index DIR [--top-k N] [--json]
-  python cli.py query --index DIR --interactive [--top-k N] [--json]
+  python cli.py query "<text>" --index DIR [--top-k N] [--json] [--code-only | --kind-penalty X]
+  python cli.py query --index DIR --interactive [--top-k N] [--json] [--code-only | --kind-penalty X]
       Search an index (a folder index, or indexes/apps). Snippets are read from the source and flagged
       "stale" if it changed since indexing (re-run `index` to refresh). --interactive loads the model once
       and answers queries at a prompt with no reload; it picks up a re-saved index automatically.
+      Test and docs files rank below code by default (--kind-penalty, default 0.05; 0 turns it off);
+      --code-only leaves them out. Neither affects the apps index, whose documents are all code.
   python cli.py eval-apps [--limit N] [--index DIR] ...
       Real-pipeline AppsRetrieval evaluation (see eval/apps_pipeline.py).
 
@@ -31,10 +35,48 @@ from index import IndexMismatchError, build_index, chunking_config, load_index, 
 from index.storage import MANIFEST
 
 SNIPPET_LINES = 12  # lines of the best chunk shown per text result
+# Subtracted from test and docs files' scores before ranking. On the pre-registered Scrapy questions
+# (reports/scrapy_retrieval_check.md) any value from 0.05 up took strict top-1 from 5/10 to 8/10.
+DEFAULT_KIND_PENALTY = 0.05
 
 
 def log(*args) -> None:
     print(*args, file=sys.stderr, flush=True)
+
+
+# The encoder's model (embedding.onnx_encoder.DEFAULT_MODEL) and the apps dataset (loaders.apps.DATASET) as
+# Hugging Face cache directory names. Kept as strings so this check needs no Hugging Face import.
+_MODEL_CACHE_NAME = "models--Alibaba-NLP--gte-modernbert-base"
+_APPS_CACHE_NAME = "CoIR-Retrieval___apps"
+
+
+def use_offline_hub_if_cached(needs_apps_dataset: bool) -> bool:
+    """Set HF_HUB_OFFLINE=1 when everything this command downloads is already cached. Returns whether it did.
+
+    Offline, Hugging Face libraries make no network calls: no "unauthenticated requests" warning in demos and
+    a faster start. It is only set when the model's files (and, for apps commands, the dataset) are cached, so
+    a first run can still download them; an explicit HF_HUB_OFFLINE in the environment always wins. Must run
+    before huggingface_hub is imported, which reads the variable once at import.
+    """
+    if "HF_HUB_OFFLINE" in os.environ or "huggingface_hub" in sys.modules:
+        return False
+    hf_home = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface")
+    snapshots = Path(os.environ.get("HF_HUB_CACHE") or hf_home / "hub") / _MODEL_CACHE_NAME / "snapshots"
+    if not (any(snapshots.glob("*/onnx/model.onnx")) and any(snapshots.glob("*/tokenizer.json"))):
+        return False
+    if needs_apps_dataset:
+        datasets_cache = Path(os.environ.get("HF_DATASETS_CACHE") or hf_home / "datasets")
+        if not (datasets_cache / _APPS_CACHE_NAME).is_dir():
+            return False
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    return True
+
+
+def _index_is_apps(index_dir: Path) -> bool:
+    try:
+        return json.loads((index_dir / MANIFEST).read_text(encoding="utf-8")).get("source", {}).get("kind") == "apps"
+    except (OSError, ValueError):
+        return False
 
 
 def _make_encoder():
@@ -72,10 +114,12 @@ def cmd_index(args) -> int:
 
     skipped: Counter = Counter()
     # An index stored inside the folder it indexes must not index itself.
-    docs = [d for d in loaders.directory.load_directory(root, on_skip=lambda _, reason: skipped.update([reason]))
+    kinds = {"code"} if args.source_only else None
+    docs = [d for d in loaders.directory.load_directory(root, kinds=kinds,
+                                                        on_skip=lambda _, reason: skipped.update([reason]))
             if out not in Path(d.metadata["source_path"]).parents]
     log(f"{root}: {len(docs):,} files" + (f"; skipped {dict(skipped)}" if skipped else ""))
-    chunking = chunking_config(loaders.directory.CHUNKING, encoder)
+    chunking = chunking_config(loaders.directory.CHUNKING, encoder, header=not args.no_header)
     source = {"kind": "directory", "root": str(root)}
 
     if (out / MANIFEST).exists() and not args.rebuild:
@@ -106,9 +150,10 @@ class QuerySession:
     files that changed on disk, so edits made mid-session show up as stale until re-indexed.
     """
 
-    def __init__(self, index_dir: Path, encoder):
+    def __init__(self, index_dir: Path, encoder, kind_penalty: float = DEFAULT_KIND_PENALTY, code_only: bool = False):
         self.index_dir = Path(index_dir)
         self.encoder = encoder
+        self.retriever_options = {"kind_penalty": kind_penalty, "code_only": code_only}
         self._stamp = None
         self._load()
 
@@ -120,7 +165,8 @@ class QuerySession:
         from retrieval import Retriever, SnippetReader
         stamp = self._manifest_stamp()
         index = load_index(self.index_dir, encoder=self.encoder)
-        self.index, self.retriever, self.reader = index, Retriever(index, self.encoder), SnippetReader(index)
+        retriever = Retriever(index, self.encoder, **self.retriever_options)
+        self.index, self.retriever, self.reader = index, retriever, SnippetReader(index)
         self._stamp = stamp
 
     def refresh(self, force: bool = False) -> None:
@@ -253,7 +299,7 @@ def cmd_query(args) -> int:
     t0 = time.perf_counter()
     encoder = _make_encoder()
     try:
-        session = QuerySession(args.index, encoder)
+        session = QuerySession(args.index, encoder, kind_penalty=args.kind_penalty, code_only=args.code_only)
     except FileNotFoundError:
         log(f"error: no index at {args.index} (build one with: python cli.py index <path>)")
         return 2
@@ -287,6 +333,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("path", help="folder to index")
     p.add_argument("--out", type=Path, help="index directory (default: indexes/<folder name>-<hash8>)")
     p.add_argument("--rebuild", action="store_true", help="rebuild from scratch instead of updating")
+    p.add_argument("--source-only", action="store_true", help="skip test and docs files (index code only)")
+    p.add_argument("--no-header", action="store_true",
+                   help="embed chunks without the file path / class / function header")
 
     p = sub.add_parser("query", help="search an index")
     p.add_argument("text", nargs="?", help="natural-language or code query (optional with --interactive)")
@@ -295,6 +344,11 @@ def main(argv: list[str] | None = None) -> int:
                    help="load the model once, then answer queries typed at a prompt (:help for commands)")
     p.add_argument("--top-k", type=int, default=10, help="number of results (default 10)")
     p.add_argument("--json", action="store_true", help="print results as JSON")
+    kind = p.add_mutually_exclusive_group()
+    kind.add_argument("--code-only", action="store_true", help="leave test and docs files out of the results")
+    kind.add_argument("--kind-penalty", type=float, default=DEFAULT_KIND_PENALTY,
+                      help=f"score subtracted from test and docs files before ranking (default {DEFAULT_KIND_PENALTY}; "
+                           "0 ranks them like code)")
 
     p = sub.add_parser("eval-apps", help="real-pipeline AppsRetrieval evaluation (NDCG@10, MRR@10)",
                        description="Other options (--index, --output, --mteb-results) pass through to "
@@ -302,12 +356,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--limit", type=int, default=None, help="evaluate only the first N test queries")
 
     args, rest = parser.parse_known_args(argv)
+    use_offline_hub_if_cached(needs_apps_dataset=args.command == "eval-apps"
+                              or (args.command == "query" and _index_is_apps(args.index)))
     if args.command == "eval-apps":
         return cmd_eval_apps(args, rest)
     if rest:
         parser.error(f"unrecognized arguments: {' '.join(rest)}")
     if args.command == "query" and args.top_k < 1:
         parser.error("--top-k must be >= 1")
+    if args.command == "query" and args.kind_penalty < 0:
+        parser.error("--kind-penalty must be >= 0")
     return cmd_index(args) if args.command == "index" else cmd_query(args)
 
 

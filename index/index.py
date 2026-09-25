@@ -100,16 +100,23 @@ class UpdateStats:
     chunks_embedded: int
 
 
-def chunking_config(name: str, encoder, overlap_tokens: int = DEFAULT_OVERLAP_TOKENS) -> dict:
-    """The full chunking configuration for a loader's CHUNKING name, as recorded in the manifest."""
+def chunking_config(name: str, encoder, overlap_tokens: int = DEFAULT_OVERLAP_TOKENS, header: bool = False) -> dict:
+    """The full chunking configuration for a loader's CHUNKING name, as recorded in the manifest.
+
+    header is recorded only when on, so indexes built before headers existed keep their exact configuration.
+    """
     if name == "none":
         return {"name": "none"}
-    return {"name": name, "max_length": encoder.max_length, "overlap_tokens": overlap_tokens}
+    config = {"name": name, "max_length": encoder.max_length, "overlap_tokens": overlap_tokens}
+    if header:
+        config["header"] = True
+    return config
 
 
 def _chunker(chunking: dict, encoder):
     return make_chunker(chunking["name"], tokenizer=encoder.tokenizer, max_length=chunking.get("max_length"),
-                        overlap_tokens=chunking.get("overlap_tokens", DEFAULT_OVERLAP_TOKENS))
+                        overlap_tokens=chunking.get("overlap_tokens", DEFAULT_OVERLAP_TOKENS),
+                        header=chunking.get("header", False))
 
 
 def _chunk_and_embed(docs: list[Document], chunking: dict, encoder, progress: ProgressCallback | None):
@@ -117,7 +124,7 @@ def _chunk_and_embed(docs: list[Document], chunking: dict, encoder, progress: Pr
     chunks = [chunk for doc in docs for chunk in chunker(doc)]
     if chunks:
         # One encode call for everything, so the encoder can sort all texts by length (minimal padding).
-        embeddings = encoder.encode([c.text for c in chunks], progress=progress)
+        embeddings = encoder.encode([c.embed_text for c in chunks], progress=progress)
     else:
         embeddings = np.empty((0, encoder.dim), dtype=np.float32)
     return chunks, np.asarray(embeddings, dtype=np.float32)

@@ -46,6 +46,8 @@ class Chunk:
 
     start_line / end_line are 1-based and inclusive, so results can cite them directly.
     text is exactly those lines of the document, line endings included.
+    header is optional context (file path, enclosing class/function names) embedded in front of the text but
+    not part of it: what gets embedded is embed_text, what gets cited is text.
     """
 
     chunk_id: str
@@ -53,3 +55,8 @@ class Chunk:
     text: str
     start_line: int
     end_line: int
+    header: str = ""
+
+    @property
+    def embed_text(self) -> str:
+        return self.header + self.text

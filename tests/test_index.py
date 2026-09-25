@@ -215,6 +215,28 @@ def test_duplicate_ids_and_none_chunking():
     assert np.array_equal(index.embeddings[1], enc.vector(docs[1].text))
 
 
+
+def test_header_config_is_recorded_and_embedded():
+    enc = FakeEncoder()
+    assert chunking_config(CHUNKING, enc) == {"name": "windows", "max_length": 256, "overlap_tokens": DEFAULT_OVERLAP_TOKENS}
+    assert chunking_config(CHUNKING, enc, header=True)["header"] is True
+    assert chunking_config("none", enc, header=True) == {"name": "none"}
+    with tempfile.TemporaryDirectory() as tmp:
+        root, out = Path(tmp, "repo"), Path(tmp, "idx")
+        _repo(root)
+        index = build_index(load_directory(root), enc, chunking_config(CHUNKING, enc, header=True))
+        assert all(t.startswith("# ") for t in enc.encoded)  # every embedded text carries its header
+        row = index.chunks[0]
+        assert np.array_equal(index.embeddings[0], enc.vector(enc.encoded[0]))
+        save_index(index, out)
+        assert load_index(out).chunking["header"] is True
+        try:  # an index built with headers is not updated as if it had none
+            load_index(out).check_compatible(enc, chunking_config(CHUNKING, enc))
+        except IndexMismatchError:
+            pass
+        else:
+            raise AssertionError("header/no-header chunking mismatch accepted")
+
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
     failed = 0

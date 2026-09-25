@@ -7,6 +7,11 @@ product). A document's score aggregates its chunks' scores:
   mean  the average over its chunks
   sum   the total over its chunks (favours long files with many related parts)
 For unchunked indexes (apps: one chunk per document) all three give the chunk score.
+
+File kinds (loaders.directory.file_kind): on plain-language questions, docs (prose, like the question) and tests
+(which repeat the implementation's vocabulary) tend to outrank the implementation. kind_penalty subtracts a fixed
+amount from test and docs files' scores before ranking; code_only drops them. Reported scores stay the raw
+cosine similarities. Apps documents (ids like d123) always classify as code, so neither option affects apps.
 """
 from __future__ import annotations
 
@@ -16,6 +21,7 @@ from typing import Callable
 import numpy as np
 
 from index import Index
+from loaders.directory import file_kind
 
 AGGREGATES = ("max", "mean", "sum")
 DEFAULT_TOP_K = 10
@@ -40,9 +46,19 @@ class DocResult:
 
 
 class Retriever:
-    def __init__(self, index: Index, encoder, aggregate: str = "max", chunks_per_doc: int = DEFAULT_CHUNKS_PER_DOC):
+    def __init__(
+        self,
+        index: Index,
+        encoder,
+        aggregate: str = "max",
+        chunks_per_doc: int = DEFAULT_CHUNKS_PER_DOC,
+        kind_penalty: float = 0.0,
+        code_only: bool = False,
+    ):
         if aggregate not in AGGREGATES:
             raise ValueError(f"unknown aggregate {aggregate!r}; expected one of {AGGREGATES}")
+        if kind_penalty < 0:
+            raise ValueError(f"kind_penalty must be >= 0, got {kind_penalty}")
         index.check_compatible(encoder)
         self.index = index
         self.encoder = encoder
@@ -61,6 +77,11 @@ class Retriever:
         self._doc_ids = doc_ids
         self._embeddings = index.embeddings[self._order]  # rows in grouped order
 
+        # Per-document score adjustment by file kind: 0 for code, -kind_penalty for tests/docs (-inf: dropped).
+        is_code = np.array([file_kind(d) == "code" for d in doc_ids], dtype=bool)
+        other = -np.inf if code_only else -float(kind_penalty)
+        self._adjust = np.where(is_code, 0.0, other).astype(np.float32)
+
     def search(self, query: str, top_k: int = DEFAULT_TOP_K) -> list[DocResult]:
         return self.search_many([query], top_k)[0]
 
@@ -78,8 +99,9 @@ class Retriever:
         for start in range(0, len(query_embeddings), QUERY_BLOCK):
             chunk_scores = query_embeddings[start:start + QUERY_BLOCK] @ self._embeddings.T  # (q, rows)
             doc_scores = self._aggregate(chunk_scores)
+            ranking_scores = doc_scores + self._adjust
             for q in range(len(chunk_scores)):
-                results.append(self._top_docs(chunk_scores[q], doc_scores[q], top_k))
+                results.append(self._top_docs(chunk_scores[q], doc_scores[q], ranking_scores[q], top_k))
         return results
 
     def _aggregate(self, chunk_scores: np.ndarray) -> np.ndarray:
@@ -90,12 +112,15 @@ class Retriever:
         sums = np.add.reduceat(chunk_scores, self._starts, axis=1)
         return sums / self._counts if self.aggregate == "mean" else sums
 
-    def _top_docs(self, chunk_scores: np.ndarray, doc_scores: np.ndarray, top_k: int) -> list[DocResult]:
-        k = min(top_k, len(doc_scores))
+    def _top_docs(
+        self, chunk_scores: np.ndarray, doc_scores: np.ndarray, ranking_scores: np.ndarray, top_k: int
+    ) -> list[DocResult]:
+        """Rank by ranking_scores (kind-adjusted); report the raw doc_scores."""
+        k = min(top_k, int(np.isfinite(ranking_scores).sum()))
         if k <= 0:
             return []
-        top = np.argpartition(-doc_scores, k - 1)[:k]
-        top = top[np.argsort(-doc_scores[top], kind="stable")]
+        top = np.argpartition(-ranking_scores, k - 1)[:k]
+        top = top[np.argsort(-ranking_scores[top], kind="stable")]
         out = []
         for d in top:
             first, n = self._starts[d], self._counts[d]

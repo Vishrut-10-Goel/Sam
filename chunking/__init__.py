@@ -17,13 +17,21 @@ CHUNKERS = ("none", "windows")
 
 
 def make_chunker(
-    name: str, *, tokenizer=None, max_length: int | None = None, overlap_tokens: int = DEFAULT_OVERLAP_TOKENS
+    name: str,
+    *,
+    tokenizer=None,
+    max_length: int | None = None,
+    overlap_tokens: int = DEFAULT_OVERLAP_TOKENS,
+    header: bool = False,
 ) -> Chunker:
-    """name: a loader's CHUNKING. "windows" needs the encoder's tokenizer and max_length, so chunks fit it."""
+    """name: a loader's CHUNKING. "windows" needs the encoder's tokenizer and max_length, so chunks fit it.
+
+    header (windows only): prefix each chunk's embedded text with its file path and enclosing definitions.
+    """
     if name == "none":
         return chunk_none
     if name == "windows":
         if tokenizer is None or max_length is None:
             raise ValueError("windows chunking needs the encoder's tokenizer and max_length")
-        return lambda doc: chunk_windows(doc, tokenizer, max_length, overlap_tokens)
+        return lambda doc: chunk_windows(doc, tokenizer, max_length, overlap_tokens, header=header)
     raise ValueError(f"unknown chunker {name!r}; expected one of {CHUNKERS}")

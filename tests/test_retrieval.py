@@ -144,6 +144,39 @@ def test_end_to_end_directory_search_and_snippets():
         assert SnippetReader(index).snippet("m1.py", 1, 1).status == "missing"
 
 
+
+def _kinds_index() -> Index:
+    # A doc and a test outscore the code file on raw similarity.
+    rows = [("docs/guide.rst", 0.9), ("tests/test_retry.py", 0.8), ("pkg/retry.py", 0.78), ("README.md", 0.5)]
+    chunks = [ChunkRow(f"{d}#L1-L1", d, 1, 1) for d, _ in rows]
+    documents = {d: DocEntry(f"hash-{d}", [f"{d}#L1-L1"], {}) for d, _ in rows}
+    return Index(np.stack([_vec(s) for _, s in rows]), chunks, documents, FINGERPRINT, {"name": "windows"})
+
+
+def test_kind_penalty_and_code_only():
+    enc = StubEncoder({"q": E0})
+    raw = Retriever(_kinds_index(), enc).search("q")
+    assert [r.doc_id for r in raw] == ["docs/guide.rst", "tests/test_retry.py", "pkg/retry.py", "README.md"]
+    weighted = Retriever(_kinds_index(), enc, kind_penalty=0.15).search("q")
+    assert [r.doc_id for r in weighted][:2] == ["pkg/retry.py", "docs/guide.rst"]
+    assert _ranking(weighted)[0] == ("pkg/retry.py", 0.78)  # reported scores stay raw cosine
+    only = Retriever(_kinds_index(), enc, code_only=True).search("q", top_k=10)
+    assert [r.doc_id for r in only] == ["pkg/retry.py"]
+    try:
+        Retriever(_kinds_index(), enc, kind_penalty=-1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("negative penalty accepted")
+
+
+def test_kind_options_do_not_affect_apps_ids():
+    enc = StubEncoder({"q": E0})
+    index = _grouping_index()  # ids a, b, c: classify as code, like apps ids d1..d8765
+    base = _ranking(Retriever(index, enc).search("q"))
+    assert _ranking(Retriever(index, enc, kind_penalty=0.5).search("q")) == base
+    assert _ranking(Retriever(index, enc, code_only=True).search("q")) == base
+
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
     failed = 0

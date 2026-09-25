@@ -228,6 +228,60 @@ def test_apps_queries_and_qrels():
     assert all(len(rels) == 1 for rels in qrels.values())
 
 
+# ---- file kinds and headers ----
+
+def test_file_kind():
+    from loaders.directory import file_kind
+    cases = {
+        "scrapy/downloadermiddlewares/retry.py": "code", "src/testing_utils.py": "code", "pyproject.toml": "code",
+        "tests/test_x.py": "test", "tests/README.md": "test", "src/app.test.js": "test", "pkg/foo_test.go": "test",
+        "conftest.py": "test", "tests_typing/x.py": "test", "web/button.spec.ts": "test",
+        "docs/topics/settings.rst": "docs", "docs/conf.py": "docs", "README.md": "docs", "LICENSE": "docs",
+        "CHANGES.rst": "docs", "notes.txt": "docs",
+    }
+    assert {k: file_kind(k) for k in cases} == cases
+
+
+def test_directory_kinds_filter():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write(root, "pkg/mod.py", "x = 1\n")
+        _write(root, "tests/test_mod.py", "assert True\n")
+        _write(root, "docs/guide.md", "# Guide\n")
+        docs, skipped = _load(root, kinds={"code"})
+        assert set(docs) == {"pkg/mod.py"}
+        assert skipped == {"tests/test_mod.py": "kind:test", "docs/guide.md": "kind:docs"}
+
+
+def test_windows_header_names_file_and_enclosing_definitions():
+    src = "import os\n\n\nclass Depth:\n" + "".join(
+        f"    def m{i}(self):\n        return {i}\n\n" for i in range(60)) + "\n@property\ndef tail():\n    return 0\n"
+    doc = Document.create("pkg/depth.py", src, source_path="x", language="python")
+    plain = chunk_windows(doc, _tok(), max_length=256, overlap_tokens=16)
+    chunks = chunk_windows(doc, _tok(), max_length=256, overlap_tokens=16, header=True)
+    assert all(c.header == "" for c in plain) and len(chunks) > 3
+    for c in chunks:
+        assert c.header.startswith("# pkg/depth.py\n")
+        assert c.embed_text == c.header + c.text  # the header is embedded, never part of the cited text
+        assert len(_tok()(c.embed_text)["input_ids"]) <= 256, c.chunk_id
+        names = c.header.split("\n")[1].removeprefix("# ").split(", ") if c.header.count("\n") > 1 else []
+        assert len(names) == len(set(names))
+    _check_windows(doc, chunks, 256)  # same line-window invariants as without headers
+    middle = chunks[len(chunks) // 2]
+    assert "# Depth, Depth.m" in middle.header  # enclosing class named even though its line is not in the window
+    assert "tail" in chunks[-1].header  # decorated top-level function (span starts at the decorator)
+
+
+def test_windows_header_for_non_python_and_unparsable():
+    for doc_id, text in [("docs/guide.md", "# Title\n\nSome text.\n"), ("broken.py", "def f(:\n    pass\n")]:
+        [c] = chunk_windows(Document.create(doc_id, text, "x", None), _tok(), 1024, header=True)
+        assert c.header == f"# {doc_id}\n" and c.text == text
+
+
+def test_apps_chunking_never_has_headers():
+    [c] = make_chunker("none")(Document.create("d1", "print(1)\n", "x", "python"))
+    assert c.header == "" and c.embed_text == "print(1)\n"
+
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
     failed = 0

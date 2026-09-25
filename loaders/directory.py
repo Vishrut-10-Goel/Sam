@@ -6,12 +6,16 @@ the index's incremental update can match documents by ID and detect changes by c
 
 Skipped: SKIP_DIRS, anything matched by a .gitignore in the tree, symlinks, files over max_file_bytes,
 binaries, files that are not valid UTF-8, empty / whitespace-only files, and minified files.
+
+file_kind() classifies a path as "code", "test" or "docs". Retrieval uses it to down-weight or filter tests and
+docs, which otherwise outrank the implementation on plain-language questions; `kinds=` restricts loading to
+some kinds (`cli.py index --source-only`).
 """
 from __future__ import annotations
 
 import os
 from pathlib import Path, PurePosixPath
-from typing import Callable, Iterator
+from typing import Callable, Collection, Iterator
 
 import pathspec
 
@@ -36,6 +40,36 @@ LANGUAGES = {
     ".vue": "vue", ".md": "markdown", ".rst": "rst", ".json": "json", ".yaml": "yaml", ".yml": "yaml",
     ".toml": "toml", ".xml": "xml",
 }
+
+FILE_KINDS = ("code", "test", "docs")
+_TEST_DIRS = frozenset({"test", "tests", "testing", "__tests__", "spec", "specs"})
+_DOCS_DIRS = frozenset({"doc", "docs", "documentation"})
+_DOCS_EXTENSIONS = frozenset({".md", ".rst", ".txt", ".adoc", ".rdoc"})
+_DOCS_STEMS = frozenset({"readme", "changelog", "changes", "history", "license", "licence", "contributing",
+                         "authors", "notice", "news"})
+
+
+def file_kind(doc_id: str) -> str:
+    """"test", "docs" or "code" for a root-relative forward-slash path. Decided from the path alone.
+
+    test: under a tests/ (test, testing, __tests__, spec) directory, or named like a test file (test_x.py,
+          x_test.py/go, x.test.js, x.spec.ts, conftest.py). Checked first: tests/README.md is a test file.
+    docs: under a docs/ directory, a prose extension (.md, .rst, .txt, ...), or README/CHANGELOG/LICENSE/...
+    code: everything else, including configuration.
+    """
+    parts = doc_id.lower().split("/")
+    name = parts[-1]
+    stem = name.split(".", 1)[0]
+    suffix = "." + name.rsplit(".", 1)[-1] if "." in name else ""
+    if any(d in _TEST_DIRS or d.startswith("tests_") for d in parts[:-1]):
+        return "test"
+    if (name.startswith("test_") or name == "conftest.py" or stem.endswith("_test")
+            or ".test." in name or ".spec." in name):
+        return "test"
+    if any(d in _DOCS_DIRS for d in parts[:-1]) or suffix in _DOCS_EXTENSIONS or stem in _DOCS_STEMS:
+        return "docs"
+    return "code"
+
 
 # on_skip(doc_id, reason) is called for every skipped file (not for pruned directories' contents).
 SkipCallback = Callable[[str, str], None]
@@ -102,9 +136,13 @@ def load_directory(
     max_file_bytes: int = MAX_FILE_BYTES,
     skip_dirs: frozenset[str] = SKIP_DIRS,
     respect_gitignore: bool = True,
+    kinds: Collection[str] | None = None,
     on_skip: SkipCallback | None = None,
 ) -> Iterator[Document]:
-    """Yield one Document per eligible file under root, in sorted path order."""
+    """Yield one Document per eligible file under root, in sorted path order.
+
+    kinds: if given, only files whose file_kind() is in it (others are skipped with reason "kind:<kind>").
+    """
     root = Path(root).resolve()
     if not root.is_dir():
         raise NotADirectoryError(root)
@@ -129,6 +167,8 @@ def load_directory(
             doc_id = rel_path.as_posix()
             if respect_gitignore and gitignores.ignored(rel_path, is_dir=False):
                 reason, text = "gitignored", None
+            elif kinds is not None and (kind := file_kind(doc_id)) not in kinds:
+                reason, text = f"kind:{kind}", None
             else:
                 reason, text = _skip_reason(here / name, name, max_file_bytes)
             if reason is not None:

@@ -24,7 +24,10 @@ def _run(*argv, encoder=None) -> tuple[int, str, str]:
     out, err = io.StringIO(), io.StringIO()
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = cli.main([str(a) for a in argv])
+            try:
+                code = cli.main([str(a) for a in argv])
+            except SystemExit as e:  # argparse errors exit, as they do from the shell
+                code = e.code
     finally:
         cli._make_encoder = old
     return code, out.getvalue(), err.getvalue()
@@ -42,7 +45,7 @@ def test_index_query_update_stale_cycle():
     with tempfile.TemporaryDirectory() as tmp:
         root, out = Path(tmp, "repo"), Path(tmp, "idx")
         _repo(root)
-        code, _, err = _run("index", root, "--out", out)
+        code, _, err = _run("index", root, "--out", out, "--no-header")
         assert code == 0 and "built: 4 files" in err, err
 
         # FakeEncoder embeds identical text identically, so querying a function's exact text finds it.
@@ -63,7 +66,7 @@ def test_index_query_update_stale_cycle():
 
         # Incremental update: only the changed and new files are embedded.
         enc = FakeEncoder()
-        code, _, err = _run("index", root, "--out", out, encoder=enc)
+        code, _, err = _run("index", root, "--out", out, "--no-header", encoder=enc)
         assert code == 0 and "1 added, 1 changed, 1 deleted, 2 unchanged" in err, err
         assert sorted(enc.encoded) == ["def g():\n    return 1\n", "def h():\n    return 2\n"]
 
@@ -116,13 +119,13 @@ def test_errors():
         code, _, err = _run("index", Path(tmp, "missing"))
         assert code == 2 and "not a directory" in err
 
-        assert _run("index", root, "--out", out)[0] == 0
+        assert _run("index", root, "--out", out, "--no-header")[0] == 0
         other = FakeEncoder(name="other-model")
-        code, _, err = _run("index", root, "--out", out, encoder=other)
+        code, _, err = _run("index", root, "--out", out, "--no-header", encoder=other)
         assert code == 2 and "--rebuild" in err, err
         code, _, err = _run("query", "x", "--index", out, encoder=other)
         assert code == 2 and "differs" in err, err
-        code, _, err = _run("index", root, "--out", out, "--rebuild", encoder=other)
+        code, _, err = _run("index", root, "--out", out, "--no-header", "--rebuild", encoder=other)
         assert code == 0 and "built" in err, err
 
 
@@ -179,7 +182,7 @@ def test_interactive_commands_and_single_model_load():
     with tempfile.TemporaryDirectory() as tmp:
         root, out = Path(tmp, "repo"), Path(tmp, "idx")
         _repo(root)
-        assert _run("index", root, "--out", out)[0] == 0
+        assert _run("index", root, "--out", out, "--no-header")[0] == 0
         code, stdout, stderr, made = _run_interactive(out, [
             "def f1_5(x):",
             ":k 1",
@@ -212,14 +215,14 @@ def test_interactive_sees_edits_and_reindex_without_reloading_model():
     with tempfile.TemporaryDirectory() as tmp:
         root, out = Path(tmp, "repo"), Path(tmp, "idx")
         _repo(root)
-        assert _run("index", root, "--out", out)[0] == 0
+        assert _run("index", root, "--out", out, "--no-header")[0] == 0
         new_text = "def g():\n    return 1"  # no trailing newline: :paste joins lines without one
 
         def edit():
             (root / "pkg/mod1.py").write_text(new_text, encoding="utf-8", newline="")
 
         def reindex():  # as if `cli.py index` ran in another terminal
-            assert _run("index", root, "--out", out)[0] == 0
+            assert _run("index", root, "--out", out, "--no-header")[0] == 0
 
         code, stdout, stderr, made = _run_interactive(out, [
             ":k 4",
@@ -239,7 +242,7 @@ def test_interactive_first_query_and_end_of_input():
     with tempfile.TemporaryDirectory() as tmp:
         root, out = Path(tmp, "repo"), Path(tmp, "idx")
         _repo(root)
-        assert _run("index", root, "--out", out)[0] == 0
+        assert _run("index", root, "--out", out, "--no-header")[0] == 0
         old_make, old_stdin = cli._make_encoder, sys.stdin
         cli._make_encoder, sys.stdin = FakeEncoder, ScriptedStdin([])  # EOF straight after the first query
         buf_out, buf_err = io.StringIO(), io.StringIO()
@@ -250,6 +253,63 @@ def test_interactive_first_query_and_end_of_input():
             cli._make_encoder, sys.stdin = old_make, old_stdin
         assert code == 0 and buf_err.getvalue().count("results in") == 1
         assert _run("query", "--index", out)[0] == 2  # no text and not interactive
+
+
+def test_source_only_header_default_and_code_only():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, out = Path(tmp, "repo"), Path(tmp, "idx")
+        _repo(root)
+        (root / "tests").mkdir()
+        (root / "tests/test_mod.py").write_text("def test_x():\n    assert True\n", encoding="utf-8")
+        code, _, err = _run("index", root, "--out", out)
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        assert code == 0 and manifest["chunking"].get("header") is True  # headers on by default
+        assert "tests/test_mod.py" in manifest["documents"]
+        code, stdout, _ = _run("query", "anything", "--index", out, "--top-k", 10, "--code-only", "--json")
+        assert code == 0 and {r["doc_id"] for r in json.loads(stdout)} == {"pkg/mod0.py", "pkg/mod1.py", "pkg/mod2.py"}
+        assert _run("query", "x", "--index", out, "--kind-penalty", -1)[0] == 2
+        code, _, err = _run("index", root, "--out", Path(tmp, "src"), "--source-only")
+        manifest = json.loads(Path(tmp, "src", "manifest.json").read_text(encoding="utf-8"))
+        assert code == 0 and sorted(manifest["documents"]) == ["pkg/mod0.py", "pkg/mod1.py", "pkg/mod2.py"], err
+        assert "'kind:test': 1" in err and "'kind:docs': 1" in err
+
+
+def test_offline_only_when_cached(monkeypatch=None):
+    saved = {k: os.environ.get(k) for k in ("HF_HOME", "HF_HUB_CACHE", "HF_DATASETS_CACHE", "HF_HUB_OFFLINE")}
+    hub_loaded = sys.modules.pop("huggingface_hub", None)  # the check refuses to run once it is imported
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            for k in saved:
+                os.environ.pop(k, None)
+            os.environ["HF_HOME"] = tmp
+            assert cli.use_offline_hub_if_cached(False) is False  # nothing cached: stay online
+            snap = Path(tmp, "hub", cli._MODEL_CACHE_NAME, "snapshots", "abc")
+            (snap / "onnx").mkdir(parents=True)
+            (snap / "onnx" / "model.onnx").write_bytes(b"x")
+            (snap / "tokenizer.json").write_text("{}", encoding="utf-8")
+            assert cli.use_offline_hub_if_cached(True) is False  # apps command, dataset not cached
+            assert "HF_HUB_OFFLINE" not in os.environ
+            assert cli.use_offline_hub_if_cached(False) is True and os.environ["HF_HUB_OFFLINE"] == "1"
+            os.environ["HF_HUB_OFFLINE"] = "0"  # an explicit choice wins
+            assert cli.use_offline_hub_if_cached(False) is False and os.environ["HF_HUB_OFFLINE"] == "0"
+            os.environ.pop("HF_HUB_OFFLINE")
+            Path(tmp, "datasets", cli._APPS_CACHE_NAME).mkdir(parents=True)
+            assert cli.use_offline_hub_if_cached(True) is True
+    finally:
+        if hub_loaded is not None:
+            sys.modules["huggingface_hub"] = hub_loaded
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def test_cache_names_match_real_constants():
+    import loaders.apps
+    from embedding.onnx_encoder import DEFAULT_MODEL
+    assert cli._MODEL_CACHE_NAME == "models--" + DEFAULT_MODEL.replace("/", "--")
+    assert cli._APPS_CACHE_NAME == loaders.apps.DATASET.replace("/", "___")
 
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
