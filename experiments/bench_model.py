@@ -2,7 +2,7 @@
 
 Runs on the GPU (fp16) when the environment's PyTorch can see one (venv-gpu), otherwise on CPU (venv).
 
-Usage: python bench_model.py <model_name> [max_seq_length] [batch_size]
+Usage: python experiments/bench_model.py <model_name> [max_seq_length] [batch_size]
 """
 import functools
 import sys

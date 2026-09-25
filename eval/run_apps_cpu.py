@@ -4,7 +4,7 @@ Uses embedding/onnx_encoder.py (gte-modernbert-base, fp32 ONNX, onnxruntime, CPU
 and writes the TaskResult JSON that MTEB produces.
 
 Run from the project root:  python -m eval.run_apps_cpu [output_json]   (default appsretrieval_results.json)
-Expect ~80 min on a 12-thread CPU (see bench_onnx_fp32_1024.log).
+Expect ~80 min on a 12-thread CPU (see experiments/logs/bench_onnx_fp32_1024.log).
 """
 import functools
 import sys

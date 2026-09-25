@@ -24,6 +24,8 @@ Index log: `654 files; skipped {'minified': 2, 'binary': 30, 'empty': 19, 'not_u
 | Top-1 hit is a doc or test file | 5 / 10 |
 | Query latency (model loaded) | 68-150 ms |
 
+*The numbers and verdict in this section are the baseline run; see "After the fixes" below.*
+
 **Verdict:** usable but not good. When the question uses the code's own vocabulary (retry, redirect, duplicate, robots.txt, encoding) the right file comes first. When it does not, prose wins: documentation and test files outrank the implementation, because natural-language questions are closer to prose than to code. One question (Q10) fails outright on a vocabulary gap.
 
 ## What goes wrong
@@ -33,7 +35,42 @@ Index log: `654 files; skipped {'minified': 2, 'binary': 30, 'empty': 19, 'not_u
 3. **Vocabulary gap.** 'too many links deep' never matches 'depth' (Q10); the code's own identifiers (`DEPTH_LIMIT`, `DepthMiddleware`) and its file path carry the concept, but the model only sees the chunk text, not the path.
 4. **Scores are compressed.** Top-10 scores mostly sit between 0.62 and 0.75, so small, irrelevant differences (a docs chunk that happens to say 'concurrency' five times) decide the order.
 
-## Queries
+## After the fixes: file-kind weighting and context headers
+
+Same ten pre-registered questions, same strict rule, measured with
+[`scrapy_eval_results.json`](scrapy_eval_results.json) as the raw output.
+
+**File-kind weighting**, on the same full 654-file index (no re-indexing; applied at query time). Test and docs
+files get a fixed penalty subtracted from their score before ranking, or are dropped (`code_only`):
+
+| Setting | Strict top-1 | File in top 3 | File in top 10 | MRR (file) |
+|---|---|---|---|---|
+| Baseline (as above) | 5/10 | 7/10 | 9/10 | 0.633 |
+| Penalty 0.02 | 7/10 | 9/10 | 9/10 | 0.783 |
+| Penalty 0.05 (new default), 0.10, or `--code-only` | **8/10** | 9/10 | 9/10 | **0.850** |
+
+Q5, Q6 and Q9 now return the implementation first. The result is the same for every penalty from 0.05 up, so it
+does not hinge on one tuned value; still, the penalty was chosen after seeing these queries, so treat 8/10 as an
+optimistic estimate.
+
+**Context header**, measured on Scrapy's 196 `scrapy/` source files only (the same files, chunked the same way,
+with and without a header embedded in front of each window: file path plus the Python classes/functions the window
+overlaps):
+
+| | Strict top-1 | File in top 3 | File in top 10 | MRR (file) | Chunks |
+|---|---|---|---|---|---|
+| No header | 8/10 | 9/10 | 9/10 | 0.850 | 476 |
+| Header (new default) | 8/10 | **10/10** | **10/10** | **0.867** | 502 |
+
+Per question: the header fixed Q2 (`downloadtimeout.py` 2nd → 1st) and rescued Q10 (`depth.py` not in the top 10 →
+3rd; the path carries the word the question lacks), but Q6 slipped 1st → 3rd behind a priority-queue module that
+mentions downloader slots. Net: no change at top-1, better recall. With ten questions a one-question swing is noise,
+so the honest reading is "helps recall, neutral at top-1", at the cost of ~5% more chunks.
+
+**Still wrong:** Q6 and Q10 have the right file at #3, not #1. Neither is obviously broken, so function-level (AST)
+chunking stays the next step rather than part of this change (see PLAN.md).
+
+## Queries (baseline run)
 
 ### Q1. "where is the retry logic for failed requests"
 

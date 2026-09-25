@@ -2,7 +2,7 @@
 
 Runs on the GPU (fp16) when the environment's PyTorch can see one (venv-gpu), otherwise on CPU (venv).
 
-Usage: python baseline_v2.py [max_seq_length]   (default 2048)
+Usage: python experiments/baseline_v2.py [max_seq_length]   (default 2048)
 """
 import functools
 import sys

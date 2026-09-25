@@ -76,10 +76,14 @@ Step 4 (retrieval/), step 5 (real-pipeline apps eval, eval/apps_pipeline.py) and
 
 The Scrapy check (reports/scrapy_retrieval_check.md) gave a strict top-1 of 5/10: docs and tests outrank code on
 plain-language questions, 1024-token windows blend several functions into one vector, and vocabulary gaps miss.
-Planned changes, for folder indexes only (apps stays unchunked, so P0 is unaffected):
+Changes for folder indexes only (apps stays unchunked, so P0 is unaffected):
 
-1. AST chunking: function/class-level chunks (Python `ast`; tree-sitter for other languages), ~200-500 tokens,
-   falling back to line windows for oversized units and non-code files.
-2. A context header in each chunk's text: file path, class and function names.
-3. File-kind weighting: down-weight tests/ and docs/ for code questions, or a --code-only filter.
-4. Measure each change against the same pre-registered Scrapy queries before keeping it.
+1. [done] File-kind weighting: tests and docs rank below code (penalty 0.05 by default), `--code-only` drops
+   them, `index --source-only` skips them. Strict top-1 5/10 -> 8/10, MRR 0.633 -> 0.850.
+2. [done] Context header embedded with each chunk: file path + overlapping Python classes/functions (ast).
+   Top-1 unchanged (8/10), right file in top 3 for 10/10, MRR 0.850 -> 0.867, ~5% more chunks.
+3. **Next: AST chunking.** Function/class-level chunks (Python `ast`; tree-sitter for other languages),
+   ~200-500 tokens, falling back to line windows for oversized units and non-code files. Targets the two
+   remaining #3 answers (Q6, Q10), coarse ~90-line citations, and indexing cost (43 min for Scrapy).
+4. Measure every change against the same pre-registered Scrapy queries before keeping it; add fresh queries
+   too, since the current ten have now been used to choose the weighting penalty.

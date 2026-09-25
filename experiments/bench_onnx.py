@@ -7,7 +7,7 @@ transformers<4.58 and so conflicts with this environment (transformers 5.x).
 Draws the same random sanity pairs and timing samples as bench_model.py (same seed and call order),
 so results compare directly with the PyTorch runs.
 
-Usage: python bench_onnx.py [onnx_file] [max_seq_length] [batch_size]
+Usage: python experiments/bench_onnx.py [onnx_file] [max_seq_length] [batch_size]
 """
 import functools
 import os

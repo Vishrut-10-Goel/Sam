@@ -1,0 +1,884 @@
+{
+ "full/baseline": {
+  "strict_top1": 5,
+  "file_top3": 7,
+  "file_top10": 9,
+  "mrr_file": 0.633,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 4,
+    "chunk": 4,
+    "top1": "docs/topics/settings.rst",
+    "top1_lines": [
+     1161,
+     1275
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 3,
+    "chunk": 3,
+    "top1": "docs/topics/cookies.rst",
+    "top1_lines": [
+     118,
+     135
+    ]
+   },
+   {
+    "file": 4,
+    "chunk": 4,
+    "top1": "docs/topics/optimize.rst",
+    "top1_lines": [
+     156,
+     256
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "tests/test_downloadermiddleware_httpcompression.py",
+    "top1_lines": [
+     385,
+     472
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "docs/topics/practices.rst",
+    "top1_lines": [
+     470,
+     558
+    ]
+   }
+  ]
+ },
+ "full/penalty 0.01": {
+  "strict_top1": 5,
+  "file_top3": 8,
+  "file_top10": 9,
+  "mrr_file": 0.675,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 4,
+    "chunk": 4,
+    "top1": "docs/topics/settings.rst",
+    "top1_lines": [
+     1161,
+     1275
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "docs/topics/cookies.rst",
+    "top1_lines": [
+     118,
+     135
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "docs/topics/optimize.rst",
+    "top1_lines": [
+     156,
+     256
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "tests/test_downloadermiddleware_httpcompression.py",
+    "top1_lines": [
+     385,
+     472
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "docs/topics/practices.rst",
+    "top1_lines": [
+     470,
+     558
+    ]
+   }
+  ]
+ },
+ "full/penalty 0.02": {
+  "strict_top1": 7,
+  "file_top3": 9,
+  "file_top10": 9,
+  "mrr_file": 0.783,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 3,
+    "chunk": 3,
+    "top1": "docs/topics/settings.rst",
+    "top1_lines": [
+     1161,
+     1275
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/cookies.py",
+    "top1_lines": [
+     86,
+     199
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "docs/topics/optimize.rst",
+    "top1_lines": [
+     156,
+     256
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/utils/_compression.py",
+    "top1_lines": [
+     97,
+     138
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "docs/topics/practices.rst",
+    "top1_lines": [
+     470,
+     558
+    ]
+   }
+  ]
+ },
+ "full/penalty 0.03": {
+  "strict_top1": 7,
+  "file_top3": 9,
+  "file_top10": 9,
+  "mrr_file": 0.783,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 3,
+    "chunk": 3,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     162,
+     246
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/cookies.py",
+    "top1_lines": [
+     86,
+     199
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "docs/topics/optimize.rst",
+    "top1_lines": [
+     156,
+     256
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/utils/_compression.py",
+    "top1_lines": [
+     97,
+     138
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "docs/topics/practices.rst",
+    "top1_lines": [
+     470,
+     558
+    ]
+   }
+  ]
+ },
+ "full/penalty 0.05": {
+  "strict_top1": 8,
+  "file_top3": 9,
+  "file_top10": 9,
+  "mrr_file": 0.85,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     162,
+     246
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/cookies.py",
+    "top1_lines": [
+     86,
+     199
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     237,
+     331
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/utils/_compression.py",
+    "top1_lines": [
+     97,
+     138
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "scrapy/core/downloader/handlers/http11.py",
+    "top1_lines": [
+     97,
+     186
+    ]
+   }
+  ]
+ },
+ "full/penalty 0.10": {
+  "strict_top1": 8,
+  "file_top3": 9,
+  "file_top10": 9,
+  "mrr_file": 0.85,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     162,
+     246
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/cookies.py",
+    "top1_lines": [
+     86,
+     199
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     237,
+     331
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/utils/_compression.py",
+    "top1_lines": [
+     97,
+     138
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "scrapy/core/downloader/handlers/http11.py",
+    "top1_lines": [
+     97,
+     186
+    ]
+   }
+  ]
+ },
+ "full/code_only": {
+  "strict_top1": 8,
+  "file_top3": 9,
+  "file_top10": 9,
+  "mrr_file": 0.85,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     162,
+     246
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/cookies.py",
+    "top1_lines": [
+     86,
+     199
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     237,
+     331
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/utils/_compression.py",
+    "top1_lines": [
+     97,
+     138
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "scrapy/core/downloader/handlers/http11.py",
+    "top1_lines": [
+     97,
+     186
+    ]
+   }
+  ]
+ },
+ "src/no header": {
+  "strict_top1": 8,
+  "file_top3": 9,
+  "file_top10": 9,
+  "mrr_file": 0.85,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     99
+    ]
+   },
+   {
+    "file": 2,
+    "chunk": 2,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     162,
+     246
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     116
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     84,
+     171
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/cookies.py",
+    "top1_lines": [
+     86,
+     199
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/core/downloader/__init__.py",
+    "top1_lines": [
+     237,
+     331
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     117
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     93,
+     144
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/utils/_compression.py",
+    "top1_lines": [
+     97,
+     138
+    ]
+   },
+   {
+    "file": null,
+    "chunk": null,
+    "top1": "scrapy/core/downloader/handlers/http11.py",
+    "top1_lines": [
+     97,
+     186
+    ]
+   }
+  ]
+ },
+ "src/header": {
+  "strict_top1": 8,
+  "file_top3": 10,
+  "file_top10": 10,
+  "mrr_file": 0.867,
+  "per_query": [
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/retry.py",
+    "top1_lines": [
+     1,
+     93
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/downloadtimeout.py",
+    "top1_lines": [
+     1,
+     44
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/http/response/text.py",
+    "top1_lines": [
+     1,
+     110
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/redirect.py",
+    "top1_lines": [
+     77,
+     157
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/cookies.py",
+    "top1_lines": [
+     98,
+     168
+    ]
+   },
+   {
+    "file": 3,
+    "chunk": 3,
+    "top1": "scrapy/pqueues.py",
+    "top1_lines": [
+     185,
+     290
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/dupefilters.py",
+    "top1_lines": [
+     1,
+     111
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/robotstxt.py",
+    "top1_lines": [
+     1,
+     96
+    ]
+   },
+   {
+    "file": 1,
+    "chunk": 1,
+    "top1": "scrapy/downloadermiddlewares/httpcompression.py",
+    "top1_lines": [
+     1,
+     98
+    ]
+   },
+   {
+    "file": 3,
+    "chunk": 3,
+    "top1": "scrapy/crawler.py",
+    "top1_lines": [
+     82,
+     175
+    ]
+   }
+  ]
+ }
+}

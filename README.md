@@ -116,7 +116,8 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
   card.
 - The CPU submission's other MTEB metrics: NDCG@1 0.44037, Recall@10 0.72669, Recall@100 0.91687.
 - **CPU encode time, ONNX vs PyTorch** (timing sample at 1024 tokens, batch size 4, extrapolated to the full encode):
-  onnxruntime fp32 ~77.6 min (`bench_onnx_fp32_1024.log`) vs PyTorch fp32 ~97.1 min (`bench_torch_fp32_1024.log`): onnxruntime is ~20% faster,
+  onnxruntime fp32 ~77.6 min (`experiments/logs/bench_onnx_fp32_1024.log`) vs PyTorch fp32 ~97.1 min
+  (`experiments/logs/bench_torch_fp32_1024.log`): onnxruntime is ~20% faster,
   with identical sanity-check similarities (0.725 matched vs 0.454 mismatched, 17/20 top-1).
 - **Building the prebuilt apps index** (`python -m index.build_apps`): 37.0 min for 8,765 solutions on CPU
   (30 MB on disk: 26.9 MB of embeddings, 3.5 MB manifest).
@@ -139,10 +140,13 @@ changed chunks. Use `--interactive` for live demos: startup is paid once.
 **Real-codebase check** ([full transcript](reports/scrapy_retrieval_check.md)). We indexed the whole Scrapy repository
 (654 files, 1,980 chunks, 42.8 min on CPU) and asked 10 plain-language developer questions, with answers written
 down before running. The top hit was right for **5/10** (strict), the right file was in the top 3 for 7/10, and in the
-top 10 for 9/10, at 68–150 ms per query. Questions that use the code's own vocabulary (retry, redirect, duplicate)
-work well. Otherwise documentation and tests tend to outrank the implementation, and a vocabulary gap ('links
-deep' vs 'depth') causes one outright miss. Function-level chunks with a file/class/function header, and
-down-weighting docs and tests, are the planned fixes (see [PLAN.md](PLAN.md)).
+top 10 for 9/10, at 68–150 ms per query. Documentation and tests tended to outrank the implementation, and a
+vocabulary gap ('links deep' vs 'depth') caused one outright miss. Two fixes, now the defaults for folder
+indexes, measured on the same questions: **ranking tests and docs below code** took strict top-1 from 5/10 to
+**8/10** (MRR 0.633 → 0.850), and a **context header** (file path, class and function names embedded with each
+chunk) put the right file in the top 3 for **10/10** (MRR 0.867), rescuing the vocabulary-gap miss. Ten questions
+is a small sample and the penalty was chosen after seeing them; details in the report. Neither fix touches the
+apps path (P0 results are unchanged).
 
 ## Repository structure
 
@@ -160,14 +164,7 @@ down-weighting docs and tests, are the planned fixes (see [PLAN.md](PLAN.md)).
 | `eval/apps_pipeline.py`, `eval/metrics.py` | Real-pipeline AppsRetrieval evaluation and MTEB-compatible NDCG / MRR |
 | `indexes/apps/` | Prebuilt AppsRetrieval index (committed; folder indexes built with `cli.py index` stay local) |
 | `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash` (tokenizer only) |
-| `bench_onnx.py` | CPU timing + sanity check for the int8 / fp32 ONNX exports (results in `bench_onnx*.log`) |
-| `bench_model.py` | Sanity check + timing estimate for a candidate model with PyTorch; GPU fp16 if available, else CPU fp32 |
-| `baseline.py` | MiniLM baseline wrapped as an MTEB `AbsEncoder`, evaluated on AppsRetrieval |
-| `baseline_v2.py` | gte-modernbert-base with PyTorch as an MTEB `AbsEncoder` (max 2048 tokens); GPU fp16 if available, else CPU fp32 |
-| `explore_apps.py` | Prints dataset structure and example query → code pairs |
-| `token_stats.py` | Token-length statistics for queries and corpus |
-| `check_models.py` | Read-only metadata check of candidate embedding models |
-| `jina_compat.py` | Partial transformers 5 shim for jina-embeddings-v2 (not used; see Notes) |
+| `experiments/` | Model selection and benchmark scripts (baselines, ONNX / PyTorch timing, dataset stats) and their logs in `experiments/logs/`; see [experiments/README.md](experiments/README.md) |
 | `PLAN.md` | Plan: goals, layout, step specs |
 | `reports/` | Real-codebase retrieval check on Scrapy: transcript, pre-registered answers, raw results |
 | `appsretrieval_results.json` | **P0 submission:** MTEB results JSON (CPU, fp32 ONNX) |
@@ -214,6 +211,8 @@ With the CPU environment (`venv`) active, from the repository root:
 ```powershell
 # Index a folder (default index dir: indexes/<folder name>-<hash8>). Re-running it updates the index
 # incrementally: only new and changed files are re-embedded. --rebuild starts from scratch.
+# --source-only skips test and docs files (faster on large repos); --no-header embeds chunks without the
+# file path / class / function header.
 python cli.py index D:\path\to\repo
 python cli.py index D:\path\to\repo --out indexes\myrepo
 
@@ -221,6 +220,8 @@ python cli.py index D:\path\to\repo --out indexes\myrepo
 # (flagged stale if the file changed since indexing)
 python cli.py query "parse a config file and merge defaults" --index indexes\myrepo
 python cli.py query "parse a config file and merge defaults" --index indexes\myrepo --top-k 5 --json
+# Tests and docs rank below code by default (--kind-penalty 0.05); --code-only leaves them out
+python cli.py query "where is the retry logic" --index indexes\myrepo --code-only
 
 # Interactive search: loads the model once, then answers each query with no startup cost.
 # :paste for multi-line queries, :k N, :json, :help, :q. A re-saved index (e.g. `cli.py index` run in another
@@ -286,27 +287,31 @@ python -m tests.test_onnx_parity        # loads the ONNX and PyTorch models (~3 
 ### Exploration and model selection
 
 ```powershell
-python explore_apps.py                                        # dataset structure and examples
-python baseline.py                                            # MiniLM baseline (~7 min on CPU)
-python bench_model.py Alibaba-NLP/gte-modernbert-base 1024 4  # PyTorch timing estimate: <model> [max_len] [batch]
-python bench_onnx.py onnx/model.onnx 1024 4                    # ONNX timing estimate: [onnx_file] [max_len] [batch]
+python experiments/explore_apps.py                                        # dataset structure and examples
+python experiments/baseline.py                                            # MiniLM baseline (~7 min on CPU)
+python experiments/bench_model.py Alibaba-NLP/gte-modernbert-base 1024 4  # PyTorch timing: <model> [max_len] [batch]
+python experiments/bench_onnx.py onnx/model.onnx 1024 4                    # ONNX timing: [onnx_file] [max_len] [batch]
 ```
 
 With the GPU environment (`venv-gpu`) active:
 
 ```powershell
 # Timing estimate on the GPU (batch size 8 was fastest on a 4 GB GTX 1650)
-python bench_model.py Alibaba-NLP/gte-modernbert-base 2048 8
+python experiments/bench_model.py Alibaba-NLP/gte-modernbert-base 2048 8
 
 # gte-modernbert-base full evaluation with PyTorch: [max_seq_length], default 2048
 # (~58 min at 2048 / ~55 min at 1024 on a GTX 1650; many hours with PyTorch on CPU)
-python baseline_v2.py
-python baseline_v2.py 1024
+python experiments/baseline_v2.py
+python experiments/baseline_v2.py 1024
 ```
 
 Models and datasets download from HuggingFace on first run and are cached in `~/.cache/huggingface`.
 
 ## Notes
+
+- Once the model (and, for apps commands, the dataset) is in the local Hugging Face cache, `cli.py` sets
+  `HF_HUB_OFFLINE=1`: no network calls, no "unauthenticated requests" warning, faster start. A first run still
+  downloads; set `HF_HUB_OFFLINE` yourself to override.
 
 - `jinaai/jina-embeddings-v2-base-code` was evaluated but not used: its custom model code is incompatible with
   transformers 5.x.
