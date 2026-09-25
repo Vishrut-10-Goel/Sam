@@ -1,0 +1,17 @@
+# Keep the build context small: environments, caches, logs and local indexes stay out of the image.
+.git
+venv/
+venv-*/
+.venv/
+**/__pycache__/
+**/*.py[cod]
+*.log
+*.npy
+# indexes/apps (the prebuilt apps index) is kept; folder indexes built with cli.py stay out
+indexes/*
+!indexes/apps/
+apps_pipeline_results.json
+.env
+.env.*
+.vscode/
+.idea/
