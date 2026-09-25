@@ -1,0 +1,2 @@
+# Index files are checksummed in their manifest: never rewrite line endings in them.
+indexes/** -text

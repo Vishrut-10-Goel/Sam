@@ -44,13 +44,16 @@ No chunking — the benchmark treats one solution as one unit and relevance labe
 cite line numbers, with overlap. Chunking is a per-loader setting — off for apps, on for directory — not a
 stage everything passes through.
 
-## Step 3 — index/
+## Step 3 — index/  [done]
 
 Build from Documents + Chunks, save/load, the encoder fingerprint check, the manifest (doc_id -> content hash +
 chunk ids), and incremental update. Atomic writes.
 
 The prebuilt apps index is committed (about 27 MB: 8,765 x 768 float32), so the index directory is an
 exception to the `*.npy` gitignore rule.
+Index files keep their generation-numbered names. Git stores content, not names, so every committed rebuild
+with new embeddings adds ~27 MB to history regardless of filenames: commit an index rebuild only when the
+corpus or encoder actually changes, never intermediate development rebuilds.
 
 ## Steps 4–6
 

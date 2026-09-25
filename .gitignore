@@ -50,3 +50,6 @@ embeddings/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Prebuilt indexes are committed (PLAN.md step 3), so their embeddings are an exception to *.npy above
+!indexes/**/*.npy
