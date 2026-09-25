@@ -220,6 +220,32 @@ python -m eval.run_apps_cpu
 python -m index.build_apps
 ```
 
+### Docker
+
+The image is CPU-only. The model, tokenizer and AppsRetrieval dataset are downloaded at build time, so
+containers run offline. The entrypoint is `cli.py`.
+
+```powershell
+docker build -t prism-retrieval .
+
+# Index a folder mounted at /data/repo, keeping indexes in a named volume so they persist between runs
+docker run --rm -v D:\path\to\repo:/data/repo:ro -v prism-indexes:/app/indexes prism-retrieval index /data/repo --out indexes/myrepo
+
+# Interactive search (-it for the prompt). Mount the folder too, so snippets can be read and checked for staleness.
+docker run --rm -it -v D:\path\to\repo:/data/repo:ro -v prism-indexes:/app/indexes prism-retrieval query --index indexes/myrepo --interactive
+
+# One-shot search of the prebuilt apps index shipped in the image
+docker run --rm prism-retrieval query "count the ways to climb n stairs taking 1 or 2 steps" --index indexes/apps
+
+# Real-pipeline evaluation, writing results to a mounted folder
+docker run --rm -v ${PWD}/out:/out prism-retrieval eval-apps --limit 50 --output /out/apps_pipeline_results.json
+
+# P0 submission: MTEB evaluation (~80 min), results JSON written to the mounted folder
+docker run --rm -v ${PWD}/out:/out --entrypoint python prism-retrieval -m eval.run_apps_cpu /out/appsretrieval_results.json
+```
+
+The ONNX encoder peaks at about 3 GB of RAM during long encodes. Give Docker Desktop at least 4 GB.
+
 ### Tests
 
 ```powershell
