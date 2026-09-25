@@ -209,6 +209,25 @@ def test_apps_loader_uses_dataset_ids():
     assert d.content_hash == content_hash(d.text)
 
 
+def test_apps_text_matches_what_mteb_encodes():
+    from datasets import load_dataset
+    from mteb._create_dataloaders import _corpus_to_dict
+
+    raw = load_dataset(loaders.apps.DATASET, "corpus", split="corpus", revision=loaders.apps.REVISION)
+    ours = {d.id: d.text for d in load_apps()}
+    mismatched = [row["_id"] for row in raw
+                  if ours[row["_id"]] != _corpus_to_dict({"id": row["_id"], "title": row["title"], "text": row["text"]})["text"]]
+    assert not mismatched, mismatched[:5]
+    assert sum(ours[row["_id"]] != row["text"] for row in raw) > 0  # stripping really changes some texts
+
+
+def test_apps_queries_and_qrels():
+    queries, qrels = loaders.apps.load_apps_queries()
+    assert len(queries) == len(qrels) == 3765
+    assert list(queries)[0] == "q5001" and qrels["q5001"] == {"d5001": 1}
+    assert all(len(rels) == 1 for rels in qrels.values())
+
+
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
     failed = 0
