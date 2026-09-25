@@ -5,6 +5,8 @@
 A general code-retrieval system. The apps dataset is one supported input among others; it must also index an
 arbitrary folder of source files. Encoder is `embedding/onnx_encoder.py` (fp32 ONNX, max 1024, CPU).
 
+**Deadline: 29 September 2026.** The P0 release (`PRISM_GENAI_HACKATHON_Y2026`, on commit 429aa52) is published.
+
 ## Hackathon submission goals
 
 **P0 — Retrieval accuracy.** Screened competitively on NDCG@10 and MRR over the CoIR AppsRetrieval test
@@ -71,6 +73,21 @@ corpus or encoder actually changes, never intermediate development rebuilds.
 
 Step 4 (retrieval/), step 5 (real-pipeline apps eval, eval/apps_pipeline.py) and step 6 (cli.py, including
 `query --interactive`) done. The real pipeline reproduces MTEB exactly (0.57545 / 0.52798).
+
+## P0 second pass: what has been tried
+
+The guidelines ask for post-processing and multiple retrieval passes. Status:
+
+- **Cross-encoder re-ranking: tested, rejected** (reports/reranking_experiment.md). On the first 200 test
+  queries (first stage NDCG@10 0.67357): ms-marco-MiniLM-L-6 re-ranking the top 50 gives 0.14836 (RRF fusion
+  0.40573); gte-reranker-modernbert-base re-ranking the top 10 gives 0.50657 (RRF 0.62105). Every variant makes
+  more queries worse than better. The gte model card agrees (apps: encoder 57.54, reranker 47.57). MiniLM scores
+  web-search pairs correctly but ranks the right solution at median 17 of 50 on apps. Speeds: ~0.14 s/pair
+  MiniLM, ~0.71 s/pair gte on CPU.
+- **Pseudo-relevance feedback: ready to tune.** AppsRetrieval has a disjoint train split (5,000 queries, one
+  relevant solution each, same corpus), so a second pass can be tuned on train and measured once on test.
+  Train and test query vectors are cached by experiments/encode_apps_queries.py (experiments/cache/, gitignored).
+- The submission JSON stays first-stage only unless a second pass wins on test after being tuned on train.
 
 ## Next: retrieval quality on real code
 
