@@ -63,7 +63,7 @@ venv\Scripts\Activate.ps1          # macOS/Linux: source venv/bin/activate
 
 # CPU-only PyTorch first, so nothing pulls in the CUDA build
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install mteb sentence-transformers rank_bm25 datasets
+pip install mteb sentence-transformers rank_bm25 datasets onnxruntime pathspec
 ```
 
 ### Optional GPU environment (`venv-gpu`, for model experimentation only)
