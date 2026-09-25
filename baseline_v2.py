@@ -27,9 +27,14 @@ BATCH_SIZE = 8  # fastest measured on the 4 GB GTX 1650 (batch 32 was ~40% slowe
 
 class GteModernBertEncoder(AbsEncoder):
     def __init__(self, model_name: str = MODEL_NAME, device: str = DEVICE):
-        self.model = SentenceTransformer(model_name, device=device)
+        # Load in fp32 explicitly: transformers 5 otherwise loads the checkpoint's stored dtype (fp16 for
+        # gte-modernbert-base), which would silently run the CPU path in fp16.
+        self.model = SentenceTransformer(model_name, device=device, model_kwargs={"dtype": torch.float32})
         if device == "cuda":
             self.model.half()  # Turing has fast fp16 but no bf16
+        dtype = next(self.model.parameters()).dtype
+        expected = torch.float16 if device == "cuda" else torch.float32
+        assert dtype == expected, f"model loaded as {dtype}, expected {expected}"
         self.model.max_seq_length = MAX_SEQ_LENGTH
         self.mteb_model_meta = ModelMeta.create_empty(
             overwrites=dict(name=model_name, revision=None, loader=type(self))

@@ -32,9 +32,13 @@ else:
     print(f"device: cpu (fp32, {torch.get_num_threads()} threads)   batch size: {BATCH_SIZE}")
 print(f"model: {MODEL_NAME}   max_seq_length: {MAX_LEN}")
 t0 = time.perf_counter()
-model = SentenceTransformer(MODEL_NAME, device=DEVICE)
+# Load in fp32 explicitly: transformers 5 otherwise loads the checkpoint's stored dtype (fp16 for
+# gte-modernbert-base), which would silently run the CPU path in fp16.
+model = SentenceTransformer(MODEL_NAME, device=DEVICE, model_kwargs={"dtype": torch.float32})
 if DEVICE == "cuda":
     model.half()  # Turing has fast fp16 but no bf16; also halves VRAM use
+expected_dtype = torch.float16 if DEVICE == "cuda" else torch.float32
+assert next(model.parameters()).dtype == expected_dtype, f"model loaded as {next(model.parameters()).dtype}"
 model.max_seq_length = MAX_LEN
 print(f"model load: {time.perf_counter() - t0:.0f} s")
 print(f"modules: {model}")
