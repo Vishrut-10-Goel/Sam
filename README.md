@@ -2,6 +2,8 @@
 
 > Release tag: **`PRISM_GENAI_HACKATHON_Y2026`**
 
+[![docker](https://github.com/Vishrut-10-Goel/Sam/actions/workflows/docker.yml/badge.svg)](https://github.com/Vishrut-10-Goel/Sam/actions/workflows/docker.yml)
+
 Text-to-code retrieval: given a natural-language programming problem, retrieve the code solution that solves it.
 Evaluated on the MTEB **AppsRetrieval** task (CoIR benchmark, `CoIR-Retrieval/apps`).
 
@@ -109,12 +111,12 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
 | Same, through the real pipeline (`eval.apps_pipeline`) | 1024 | CPU, onnxruntime fp32 | 0.57545 | 0.52798 | 51.5 min* |
 
 - **The real pipeline reproduces MTEB exactly** (loader → prebuilt index → retriever → our own metrics, all 3,765
-  queries). *51.5 min is query encoding and scoring only: the prebuilt index was reused, nothing re-embedded.
+  queries; per-query scores in [`apps_pipeline_results.json`](apps_pipeline_results.json)). *51.5 min is query encoding and scoring only: the prebuilt index was reused, nothing re-embedded.
 - gte-modernbert-base's 0.5770 at 2048 tokens is in line with the 0.5754 NDCG@10 on `apps` reported in its model
   card.
 - The CPU submission's other MTEB metrics: NDCG@1 0.44037, Recall@10 0.72669, Recall@100 0.91687.
 - **CPU encode time, ONNX vs PyTorch** (timing sample at 1024 tokens, batch size 4, extrapolated to the full encode):
-  onnxruntime fp32 ~77.6 min (`bench_onnx_fp32_1024.log`) vs PyTorch fp32 ~97.1 min: onnxruntime is ~20% faster,
+  onnxruntime fp32 ~77.6 min (`bench_onnx_fp32_1024.log`) vs PyTorch fp32 ~97.1 min (`bench_torch_fp32_1024.log`): onnxruntime is ~20% faster,
   with identical sanity-check similarities (0.725 matched vs 0.454 mismatched, 17/20 top-1).
 - **Building the prebuilt apps index** (`python -m index.build_apps`): 37.0 min for 8,765 solutions on CPU
   (30 MB on disk: 26.9 MB of embeddings, 3.5 MB manifest).
@@ -133,6 +135,14 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
 A one-shot query's time is almost all startup: about 7 s of imports (transformers pulls in PyTorch and
 scikit-learn) and 3 s to create the ONNX session. Re-indexing pays the same fixed ~10 s plus embedding only the
 changed chunks. Use `--interactive` for live demos: startup is paid once.
+
+**Real-codebase check** ([full transcript](reports/scrapy_retrieval_check.md)). We indexed the whole Scrapy repository
+(654 files, 1,980 chunks, 42.8 min on CPU) and asked 10 plain-language developer questions, with answers written
+down before running. The top hit was right for **5/10** (strict), the right file was in the top 3 for 7/10, and in the
+top 10 for 9/10, at 68–150 ms per query. Questions that use the code's own vocabulary (retry, redirect, duplicate)
+work well. Otherwise documentation and tests tend to outrank the implementation, and a vocabulary gap ('links
+deep' vs 'depth') causes one outright miss. Function-level chunks with a file/class/function header, and
+down-weighting docs and tests, are the planned fixes (see [PLAN.md](PLAN.md)).
 
 ## Repository structure
 
@@ -159,6 +169,11 @@ changed chunks. Use `--interactive` for live demos: startup is paid once.
 | `check_models.py` | Read-only metadata check of candidate embedding models |
 | `jina_compat.py` | Partial transformers 5 shim for jina-embeddings-v2 (not used; see Notes) |
 | `PLAN.md` | Plan: goals, layout, step specs |
+| `reports/` | Real-codebase retrieval check on Scrapy: transcript, pre-registered answers, raw results |
+| `appsretrieval_results.json` | **P0 submission:** MTEB results JSON (CPU, fp32 ONNX) |
+| `apps_pipeline_results.json` | Real-pipeline eval results with per-query NDCG@10 / MRR@10 |
+| `requirements.txt`, `constraints.txt` | Direct dependencies; full lock of every package, verified in a clean venv |
+| `Dockerfile`, `.github/workflows/docker.yml` | CPU image (offline at runtime); CI builds it and runs tests, a real query and an eval smoke test |
 
 ## Setup
 
@@ -302,7 +317,9 @@ Models and datasets download from HuggingFace on first run and are cached in `~/
 
 ## Team
 
-<!-- TODO: team members -->
+| Name | Role | GitHub |
+|---|---|---|
+| _to be added_ | | |
 
 ## License
 

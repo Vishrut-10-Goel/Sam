@@ -1,0 +1,15 @@
+device: cpu (fp32, 6 threads)   batch size: 4
+model: Alibaba-NLP/gte-modernbert-base   max_seq_length: 1024
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/134 [00:00<?, ?it/s]Loading weights:  37%|###7      | 50/134 [00:00<00:00, 475.16it/s]Loading weights:  73%|#######3  | 98/134 [00:00<00:00, 468.83it/s]Loading weights: 100%|##########| 134/134 [00:00<00:00, 483.46it/s]
+model load: 8 s
+modules: SentenceTransformer(
+  (0): Transformer({'transformer_task': 'feature-extraction', 'modality_config': {'text': {'method': 'forward', 'method_output_name': 'last_hidden_state'}}, 'module_output_name': 'token_embeddings', 'architecture': 'ModernBertModel'})
+  (1): Pooling({'embedding_dimension': 768, 'pooling_mode': 'cls', 'include_prompt': True})
+)
+longest test query: 1,024 tokens (limit 1024)
+sanity: mean diag sim 0.725 vs off-diag 0.454; top-1 correct 17/20
+queries: 150 texts (73,969 tok) in 123.9 s -> full set est. 50.1 min
+corpus: 300 texts (55,025 tok) in 89.3 s -> full set est. 47.1 min
+
+ESTIMATED full encode time: 97.1 min (+ ~1-2 min load/scoring)

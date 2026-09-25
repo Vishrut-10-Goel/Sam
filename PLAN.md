@@ -69,4 +69,17 @@ corpus or encoder actually changes, never intermediate development rebuilds.
 
 ## Steps 4–6
 
-Step 4 (retrieval/) and step 5 (real-pipeline apps eval, eval/apps_pipeline.py) done. Step 6: cli.py, per the layout above.
+Step 4 (retrieval/), step 5 (real-pipeline apps eval, eval/apps_pipeline.py) and step 6 (cli.py, including
+`query --interactive`) done. The real pipeline reproduces MTEB exactly (0.57545 / 0.52798).
+
+## Next: retrieval quality on real code
+
+The Scrapy check (reports/scrapy_retrieval_check.md) gave a strict top-1 of 5/10: docs and tests outrank code on
+plain-language questions, 1024-token windows blend several functions into one vector, and vocabulary gaps miss.
+Planned changes, for folder indexes only (apps stays unchunked, so P0 is unaffected):
+
+1. AST chunking: function/class-level chunks (Python `ast`; tree-sitter for other languages), ~200-500 tokens,
+   falling back to line windows for oversized units and non-code files.
+2. A context header in each chunk's text: file path, class and function names.
+3. File-kind weighting: down-weight tests/ and docs/ for code questions, or a --code-only filter.
+4. Measure each change against the same pre-registered Scrapy queries before keeping it.

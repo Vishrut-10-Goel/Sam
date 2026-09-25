@@ -32,6 +32,7 @@ predictions/
 # Benchmark / evaluation logs (the ONNX CPU benchmarks are kept: the README cites them)
 *.log
 !bench_onnx*.log
+!bench_torch*.log
 
 # Generated data artifacts
 *.npy
