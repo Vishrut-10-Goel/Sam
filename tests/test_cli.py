@@ -1,6 +1,7 @@
 """Tests for cli.py (step 6), with the fake encoder from tests.test_index in place of the model.
 
-Covers the P1 flow: index a folder, change it, re-index incrementally, and see stale snippets before re-indexing.
+Covers the P1 flow: index a folder, change it, re-index incrementally, and see stale snippets before re-indexing,
+both one query at a time and in one --interactive session (model loaded once).
 
 Run from the project root:  python -m tests.test_cli
 (Also collectable by pytest if it is installed.)
@@ -9,6 +10,7 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -136,6 +138,118 @@ def test_eval_apps_passes_arguments_through():
         apps_pipeline.main = old
     assert seen == [["--limit", "7"], ["--index", "x", "--output", "y.json"]]
 
+
+
+class ScriptedStdin:
+    """stdin for interactive tests: yields lines; a callable item runs (e.g. edits a file) and is skipped."""
+
+    def __init__(self, items):
+        self.items = list(items)
+
+    def readline(self) -> str:
+        while self.items:
+            item = self.items.pop(0)
+            if callable(item):
+                item()
+                continue
+            return item + "\n"
+        return ""  # end of input
+
+
+def _run_interactive(index_dir: Path, items, encoder=None) -> tuple[int, str, str, int]:
+    """Run `query --index DIR --interactive` on scripted input. Returns (code, stdout, stderr, encoders made)."""
+    made = []
+
+    def make():
+        made.append(1)
+        return encoder or FakeEncoder()
+
+    old_make, old_stdin = cli._make_encoder, sys.stdin
+    cli._make_encoder, sys.stdin = make, ScriptedStdin(items)
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli.main(["query", "--index", str(index_dir), "--interactive"])
+    finally:
+        cli._make_encoder, sys.stdin = old_make, old_stdin
+    return code, out.getvalue(), err.getvalue(), len(made)
+
+
+def test_interactive_commands_and_single_model_load():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, out = Path(tmp, "repo"), Path(tmp, "idx")
+        _repo(root)
+        assert _run("index", root, "--out", out)[0] == 0
+        code, stdout, stderr, made = _run_interactive(out, [
+            "def f1_5(x):",
+            ":k 1",
+            "return x * 5",
+            ":json",
+            "def f2_3(x):",
+            ":json",
+            ":paste",
+            "def f0_7(x):",
+            "    return x * 7",
+            ".",
+            ":k zero",
+            ":bogus",
+            "",
+            ":q",
+            "never reached",
+        ])
+        assert code == 0 and made == 1, (code, made)  # one model load for the whole session
+        assert stderr.count("results in") == 4, stderr  # four queries answered
+        assert "(showing 1 results)" in stderr and "usage: :k N" in stderr and "unknown command ':bogus'" in stderr
+        # The :json query printed exactly one result as JSON; the :paste query after it printed as text.
+        json_start = stdout.index("[\n")
+        rows = json.loads(stdout[json_start:stdout.index("\n]", json_start) + 2])
+        assert len(rows) == 1 and rows[0]["rank"] == 1
+        assert " 1. " in stdout.split("\n]", 1)[1]
+        assert "never reached" not in stdout + stderr
+
+
+def test_interactive_sees_edits_and_reindex_without_reloading_model():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, out = Path(tmp, "repo"), Path(tmp, "idx")
+        _repo(root)
+        assert _run("index", root, "--out", out)[0] == 0
+        new_text = "def g():\n    return 1"  # no trailing newline: :paste joins lines without one
+
+        def edit():
+            (root / "pkg/mod1.py").write_text(new_text, encoding="utf-8", newline="")
+
+        def reindex():  # as if `cli.py index` ran in another terminal
+            assert _run("index", root, "--out", out)[0] == 0
+
+        code, stdout, stderr, made = _run_interactive(out, [
+            ":k 4",
+            edit,
+            ":paste", "def g():", "    return 1", ".",   # before re-indexing: mod1 is stale
+            reindex,
+            ":paste", "def g():", "    return 1", ".",   # after: index reloaded, mod1 fresh and on top
+        ])
+        assert code == 0 and made == 1, (code, made)
+        assert "[stale: source changed since indexing; re-run index]" in stdout, stdout
+        assert stderr.count("(index reloaded") == 1, stderr
+        last = stdout[stdout.rindex(" 1. "):]
+        assert last.startswith(" 1. pkg/mod1.py:1-2") and "stale" not in last, last
+
+
+def test_interactive_first_query_and_end_of_input():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, out = Path(tmp, "repo"), Path(tmp, "idx")
+        _repo(root)
+        assert _run("index", root, "--out", out)[0] == 0
+        old_make, old_stdin = cli._make_encoder, sys.stdin
+        cli._make_encoder, sys.stdin = FakeEncoder, ScriptedStdin([])  # EOF straight after the first query
+        buf_out, buf_err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+                code = cli.main(["query", "README", "--index", str(out), "-i", "--top-k", "2"])
+        finally:
+            cli._make_encoder, sys.stdin = old_make, old_stdin
+        assert code == 0 and buf_err.getvalue().count("results in") == 1
+        assert _run("query", "--index", out)[0] == 2  # no text and not interactive
 
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]

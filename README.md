@@ -197,6 +197,11 @@ python cli.py index D:\path\to\repo --out indexes\myrepo
 python cli.py query "parse a config file and merge defaults" --index indexes\myrepo
 python cli.py query "parse a config file and merge defaults" --index indexes\myrepo --top-k 5 --json
 
+# Interactive search: loads the model once, then answers each query with no startup cost.
+# :paste for multi-line queries, :k N, :json, :help, :q. A re-saved index (e.g. `cli.py index` run in another
+# terminal after an edit) is picked up automatically, and edited files show as stale until re-indexed.
+python cli.py query --index indexes\myrepo --interactive
+
 # Search the prebuilt AppsRetrieval index
 python cli.py query "count the ways to climb n stairs taking 1 or 2 steps" --index indexes\apps
 

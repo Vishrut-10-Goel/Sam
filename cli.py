@@ -6,8 +6,10 @@
       Default DIR: indexes/<folder name>-<hash8>, the hash of the folder's absolute path, so folders that
       share a name never share an index.
   python cli.py query "<text>" --index DIR [--top-k N] [--json]
+  python cli.py query --index DIR --interactive [--top-k N] [--json]
       Search an index (a folder index, or indexes/apps). Snippets are read from the source and flagged
-      "stale" if it changed since indexing (re-run `index` to refresh).
+      "stale" if it changed since indexing (re-run `index` to refresh). --interactive loads the model once
+      and answers queries at a prompt with no reload; it picks up a re-saved index automatically.
   python cli.py eval-apps [--limit N] [--index DIR] ...
       Real-pipeline AppsRetrieval evaluation (see eval/apps_pipeline.py).
 
@@ -96,39 +98,63 @@ def cmd_index(args) -> int:
     return 0
 
 
-def cmd_query(args) -> int:
-    from retrieval import Retriever, SnippetReader
+class QuerySession:
+    """A loaded encoder + index + retriever, reused across queries (the model loads once).
 
-    encoder = _make_encoder()
-    try:
-        index = load_index(args.index, encoder=encoder)
-    except FileNotFoundError:
-        log(f"error: no index at {args.index} (build one with: python cli.py index <path>)")
-        return 2
-    except IndexMismatchError as e:
-        log(f"error: {e}")
-        return 2
-    results = Retriever(index, encoder).search(args.text, top_k=args.top_k)
-    reader = SnippetReader(index)
+    Before each query it checks manifest.json: if the index was re-saved (e.g. `cli.py index` run in another
+    terminal after an edit), the new index is loaded without reloading the model. Snippets are re-read from
+    files that changed on disk, so edits made mid-session show up as stale until re-indexed.
+    """
 
-    rows = []
-    for rank, r in enumerate(results, 1):
-        best = r.chunks[0]
-        snippet = reader.snippet(r.doc_id, best.start_line, best.end_line)
-        rows.append({
-            "rank": rank,
-            "doc_id": r.doc_id,
-            "score": round(r.score, 6),
-            "source_path": r.metadata.get("source_path"),
-            "language": r.metadata.get("language"),
-            "chunks": [{"chunk_id": c.chunk_id, "start_line": c.start_line, "end_line": c.end_line,
-                        "score": round(c.score, 6)} for c in r.chunks],
-            "snippet": {"status": snippet.status, "text": snippet.text},
-        })
+    def __init__(self, index_dir: Path, encoder):
+        self.index_dir = Path(index_dir)
+        self.encoder = encoder
+        self._stamp = None
+        self._load()
 
-    if args.json:
-        print(json.dumps(rows, indent=1, ensure_ascii=False))
-        return 0
+    def _manifest_stamp(self):
+        st = (self.index_dir / MANIFEST).stat()
+        return st.st_size, st.st_mtime_ns
+
+    def _load(self) -> None:
+        from retrieval import Retriever, SnippetReader
+        stamp = self._manifest_stamp()
+        index = load_index(self.index_dir, encoder=self.encoder)
+        self.index, self.retriever, self.reader = index, Retriever(index, self.encoder), SnippetReader(index)
+        self._stamp = stamp
+
+    def refresh(self, force: bool = False) -> None:
+        """Reload the index if it was re-saved since it was loaded. On failure, keep serving the loaded one."""
+        try:
+            if not force and self._manifest_stamp() == self._stamp:
+                return
+            self._load()
+            log(f"(index reloaded: {len(self.index.documents):,} files, {len(self.index.chunks):,} chunks)")
+        except (OSError, ValueError) as e:  # mid-save, or rebuilt with another encoder (IndexMismatchError)
+            log(f"(index at {self.index_dir} could not be reloaded, still using the loaded one: {e})")
+
+    def search(self, text: str, top_k: int) -> list[dict]:
+        rows = []
+        for rank, r in enumerate(self.retriever.search(text, top_k=top_k), 1):
+            best = r.chunks[0]
+            snippet = self.reader.snippet(r.doc_id, best.start_line, best.end_line)
+            rows.append({
+                "rank": rank,
+                "doc_id": r.doc_id,
+                "score": round(r.score, 6),
+                "source_path": r.metadata.get("source_path"),
+                "language": r.metadata.get("language"),
+                "chunks": [{"chunk_id": c.chunk_id, "start_line": c.start_line, "end_line": c.end_line,
+                            "score": round(c.score, 6)} for c in r.chunks],
+                "snippet": {"status": snippet.status, "text": snippet.text},
+            })
+        return rows
+
+
+def print_rows(rows: list[dict], as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(rows, indent=1, ensure_ascii=False), flush=True)
+        return
     if not rows:
         print("no results")
     for row in rows:
@@ -144,6 +170,101 @@ def cmd_query(args) -> int:
         if len(lines) > SNIPPET_LINES:
             print(f"          ... {len(lines) - SNIPPET_LINES} more lines")
         print()
+    sys.stdout.flush()
+
+
+INTERACTIVE_HELP = """\
+Type a query and press Enter. Commands:
+  :paste      multi-line query (e.g. a whole problem statement); end it with a line containing only "."
+  :k N        show N results per query (now {top_k})
+  :json       toggle JSON output (now {json})
+  :reload     reload the index from disk (also automatic when it is re-saved)
+  :help       this help
+  :q          quit (or end of input: Ctrl+Z Enter on Windows, Ctrl+D elsewhere)"""
+
+
+def _read_line(prompt: str) -> str | None:
+    """One line from stdin without its newline, or None at end of input. The prompt goes to stderr."""
+    print(prompt, end="", file=sys.stderr, flush=True)
+    line = sys.stdin.readline()
+    return None if line == "" else line.rstrip("\r\n")
+
+
+def run_interactive(session: QuerySession, top_k: int, as_json: bool, first: str | None) -> int:
+    log(INTERACTIVE_HELP.format(top_k=top_k, json="on" if as_json else "off"))
+    pending = [first] if first else []
+    while True:
+        try:
+            text = pending.pop() if pending else _read_line("\nquery> ")
+        except KeyboardInterrupt:
+            log("")
+            return 0
+        if text is None or text.strip() in (":q", ":quit", ":exit"):
+            return 0
+        cmd = text.strip()
+        if not cmd:
+            continue
+        if cmd == ":help":
+            log(INTERACTIVE_HELP.format(top_k=top_k, json="on" if as_json else "off"))
+            continue
+        if cmd == ":json":
+            as_json = not as_json
+            log(f"(JSON output {'on' if as_json else 'off'})")
+            continue
+        if cmd == ":reload":
+            session.refresh(force=True)
+            continue
+        if cmd == ":k" or cmd.startswith(":k "):
+            try:
+                top_k = int(cmd[2:])
+                if top_k < 1:
+                    raise ValueError
+                log(f"(showing {top_k} results)")
+            except ValueError:
+                log("usage: :k N   (N >= 1)")
+            continue
+        if cmd == ":paste":
+            lines = []
+            while (line := _read_line("... ")) is not None and line.strip() != ".":
+                lines.append(line)
+            text = "\n".join(lines)
+            if not text.strip():
+                continue
+        elif cmd.startswith(":"):
+            log(f"unknown command {cmd.split()[0]!r}; :help lists commands")
+            continue
+
+        try:
+            session.refresh()
+            t0 = time.perf_counter()
+            rows = session.search(text, top_k)
+        except KeyboardInterrupt:
+            log("(interrupted)")
+            continue
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        print_rows(rows, as_json)
+        log(f"({len(rows)} results in {elapsed_ms:.0f} ms)")
+
+
+def cmd_query(args) -> int:
+    if not args.interactive and args.text is None:
+        log("error: a query text is required (or use --interactive)")
+        return 2
+    t0 = time.perf_counter()
+    encoder = _make_encoder()
+    try:
+        session = QuerySession(args.index, encoder)
+    except FileNotFoundError:
+        log(f"error: no index at {args.index} (build one with: python cli.py index <path>)")
+        return 2
+    except IndexMismatchError as e:
+        log(f"error: {e}")
+        return 2
+    if args.interactive:
+        log(f"model and index loaded in {time.perf_counter() - t0:.1f} s: "
+            f"{len(session.index.documents):,} files, {len(session.index.chunks):,} chunks")
+        return run_interactive(session, args.top_k, args.json, args.text)
+    print_rows(session.search(args.text, args.top_k), args.json)
     return 0
 
 
@@ -168,8 +289,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--rebuild", action="store_true", help="rebuild from scratch instead of updating")
 
     p = sub.add_parser("query", help="search an index")
-    p.add_argument("text", help="natural-language or code query")
+    p.add_argument("text", nargs="?", help="natural-language or code query (optional with --interactive)")
     p.add_argument("--index", type=Path, required=True, help="index directory")
+    p.add_argument("--interactive", "-i", action="store_true",
+                   help="load the model once, then answer queries typed at a prompt (:help for commands)")
     p.add_argument("--top-k", type=int, default=10, help="number of results (default 10)")
     p.add_argument("--json", action="store_true", help="print results as JSON")
 

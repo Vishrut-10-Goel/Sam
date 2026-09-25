@@ -22,11 +22,15 @@ class Snippet:
 
 
 class SnippetReader:
-    """Reads and caches document sources for one index."""
+    """Reads and caches document sources for one index.
+
+    File sources are re-read whenever their size or modification time changes, so a long-lived reader (the
+    interactive CLI) reports an edit made mid-session as stale instead of serving the cached old text.
+    """
 
     def __init__(self, index: Index):
         self.index = index
-        self._texts: dict[str, str | None] = {}
+        self._files: dict[str, tuple[tuple[int, int], str | None]] = {}  # doc_id -> (stat stamp, text)
         self._apps: dict[str, str] | None = None
 
     def _apps_text(self, doc_id: str) -> str | None:
@@ -36,16 +40,23 @@ class SnippetReader:
         return self._apps.get(doc_id)
 
     def _read(self, doc_id: str) -> str | None:
-        if doc_id not in self._texts:
-            if self.index.source.get("kind") == "apps":
-                text = self._apps_text(doc_id)
-            else:
-                try:
-                    text = Path(self.index.documents[doc_id].metadata["source_path"]).read_bytes().decode("utf-8-sig")
-                except (OSError, UnicodeDecodeError, KeyError):
-                    text = None
-            self._texts[doc_id] = text
-        return self._texts[doc_id]
+        if self.index.source.get("kind") == "apps":
+            return self._apps_text(doc_id)
+        try:
+            path = Path(self.index.documents[doc_id].metadata["source_path"])
+            st = path.stat()
+            stamp = (st.st_size, st.st_mtime_ns)
+        except (OSError, KeyError):
+            self._files.pop(doc_id, None)
+            return None
+        cached = self._files.get(doc_id)
+        if cached is None or cached[0] != stamp:
+            try:
+                text = path.read_bytes().decode("utf-8-sig")
+            except (OSError, UnicodeDecodeError):
+                text = None
+            cached = self._files[doc_id] = (stamp, text)
+        return cached[1]
 
     def snippet(self, doc_id: str, start_line: int, end_line: int) -> Snippet:
         text = self._read(doc_id)
