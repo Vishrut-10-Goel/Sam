@@ -106,23 +106,33 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
 | Alibaba-NLP/gte-modernbert-base | 2048 | GPU (GTX 1650), PyTorch fp16 | 0.5770 | 0.5293 | 58.1 min |
 | Alibaba-NLP/gte-modernbert-base | 1024 | GPU (GTX 1650), PyTorch fp16 | 0.5756 | 0.5281 | 55.2 min |
 | **Alibaba-NLP/gte-modernbert-base (submission)** | **1024** | **CPU, onnxruntime fp32** | **0.57545** | **0.52798** | **78.4 min** |
-| Same, through the real pipeline (`eval.apps_pipeline`) | 1024 | CPU, onnxruntime fp32 | _pending_ | _pending_ | _pending_ |
+| Same, through the real pipeline (`eval.apps_pipeline`) | 1024 | CPU, onnxruntime fp32 | 0.57545 | 0.52798 | 51.5 min* |
 
+- **The real pipeline reproduces MTEB exactly** (loader → prebuilt index → retriever → our own metrics, all 3,765
+  queries). *51.5 min is query encoding and scoring only: the prebuilt index was reused, nothing re-embedded.
 - gte-modernbert-base's 0.5770 at 2048 tokens is in line with the 0.5754 NDCG@10 on `apps` reported in its model
   card.
 - The CPU submission's other MTEB metrics: NDCG@1 0.44037, Recall@10 0.72669, Recall@100 0.91687.
 - **CPU encode time, ONNX vs PyTorch** (timing sample at 1024 tokens, batch size 4, extrapolated to the full encode):
   onnxruntime fp32 ~77.6 min (`bench_onnx_fp32_1024.log`) vs PyTorch fp32 ~97.1 min: onnxruntime is ~20% faster,
   with identical sanity-check similarities (0.725 matched vs 0.454 mismatched, 17/20 top-1).
-- **Building the prebuilt apps index** (`python -m index.build_apps`): _pending_.
+- **Building the prebuilt apps index** (`python -m index.build_apps`): 37.0 min for 8,765 solutions on CPU
+  (30 MB on disk: 26.9 MB of embeddings, 3.5 MB manifest).
 
-**P1: retrieval across versions** (the real model, indexing this repository's code):
+**P1: retrieval across versions** (the real model on a 12-thread CPU, indexing a copy of this repository's code:
+21 files, 35 chunks):
 
 | Operation | Time |
 |---|---|
-| Initial `cli.py index` | _pending_ |
-| Re-index after editing one file | _pending_ |
-| `cli.py query` (end to end, including model load) | _pending_ |
+| Initial `cli.py index` | 51.8 s (embedding 35 chunks ≈ 40 s) |
+| Edit one file, then query before re-indexing | its result is flagged `[stale]` |
+| Re-index after editing one file | 14.5 s: `1 changed, 20 unchanged; 2 chunks embedded` |
+| `cli.py query`, one-shot, end to end | 11.2 s (folder index), 14.6 s (apps index, which also loads the dataset for snippets) |
+| `cli.py query --interactive`, per query after the first | ~22 ms for a short query; 1.6 s for the longest AppsRetrieval problem statement (5,742 chars, truncated to 1,024 tokens) |
+
+A one-shot query's time is almost all startup: about 7 s of imports (transformers pulls in PyTorch and
+scikit-learn) and 3 s to create the ONNX session. Re-indexing pays the same fixed ~10 s plus embedding only the
+changed chunks. Use `--interactive` for live demos: startup is paid once.
 
 ## Repository structure
 
