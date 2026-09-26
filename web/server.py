@@ -11,13 +11,17 @@ API (JSON):
   GET  /api/indexes/{name}   one index; also loads it, so the first search does not pay for loading
   POST /api/index            build or update an index; streams NDJSON events (log, progress, done / error):
                                {"path": "D:\\repo", "chunking": "windows"|"ast"}  index a folder on this machine
-                               {"index": "<name>"}                               re-index an index's source folder
+                               {"path": ..., "versions": "last 5" | "v1.0 v2.0 HEAD"}  versioned index of a git repo
+                               {"index": "<name>"}   re-index: a folder index from its folder; a versioned index
+                                                     adds its repository's current HEAD (older versions are kept)
                                multipart: file=<zip>, name, chunking             unpack under --uploads, index it
-  POST /api/query            {"index", "query", "top_k", "code_only"} -> ranked documents, timings
+  POST /api/query            {"index", "query", "top_k", "code_only", "version"} -> ranked documents, timings
 
-Results are grouped by document: each document has a list of hits (today one: the best-matching chunk of the
-current version, "version": null). Retrieval across versions can add hits per document without changing the
-shape. One indexing job runs at a time (it uses every core); a second request gets 409.
+Results are grouped by document, each with a list of hits. A folder index gives one hit (the best chunk,
+"version": null). A versioned index (index/versions.py) gives one hit per revision of the file: the matched one
+first (with the snippet), then the others with their commits, scores, and whether they hold the matched lines.
+"version" in a query selects one indexed version (tag or sha prefix); omitted or "all" searches all of them.
+One indexing job runs at a time (it uses every core); a second request gets 409.
 """
 from __future__ import annotations
 
@@ -50,6 +54,7 @@ class QueryRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=10, ge=1, le=MAX_TOP_K)
     code_only: bool = False
+    version: str | None = None  # versioned indexes: a tag or sha prefix; None or "all" for every version
 
 
 def _safe_name(name: str) -> str:
@@ -133,8 +138,11 @@ class Server:
                 "chunking": m.get("chunking", {}).get("name"),
                 "header": bool(m.get("chunking", {}).get("header")),
                 "saved_at": m.get("saved_at"),
-                "reindexable": source.get("kind") == "directory",
-                "versions": None,  # retrieval across versions: not implemented yet
+                "reindexable": source.get("kind") in ("directory", "git"),
+                # Versioned (git) indexes: the indexed commits, oldest first; documents are file revisions.
+                "versions": [{"sha": c["sha"], "short": c["short"], "label": c["tags"][0] if c["tags"] else c["short"],
+                              "date": c["date"][:10], "subject": c["subject"]} for c in source.get("commits", [])]
+                            if source.get("kind") == "git" else None,
             }
             cached = self._info_cache[name] = (stamp, info)
         return cached[1]
@@ -166,21 +174,35 @@ class Server:
         s, load_ms = self.session(req.index)
         s.refresh()
         t0 = time.perf_counter()
-        rows = s.search(req.query, req.top_k, code_only=req.code_only)
+        try:
+            rows = s.search(req.query, req.top_k, code_only=req.code_only, version=req.version)
+        except ValueError as e:  # a version on an unversioned index, or one that is not indexed
+            raise HTTPException(400, str(e)) from e
         query_ms = round((time.perf_counter() - t0) * 1000, 1)
         results = [{
             "rank": r["rank"], "doc_id": r["doc_id"], "source_path": r["source_path"], "language": r["language"],
-            "kind": r["kind"], "score": r["score"], "similarity": r["similarity"],
-            "hits": [{"version": None, "start_line": r["chunks"][0]["start_line"],
-                      "end_line": r["chunks"][0]["end_line"], "score": r["chunks"][0]["score"],
-                      "snippet": r["snippet"]}],
+            "kind": r["kind"], "score": r["score"], "similarity": r["similarity"], "hits": _hits(r),
         } for r in rows]
-        return {"index": self.info(req.index), "query_ms": query_ms, "load_ms": load_ms,
-                "top_k": req.top_k, "code_only": req.code_only, "results": results}
+        return {"index": self.info(req.index), "query_ms": query_ms, "load_ms": load_ms, "top_k": req.top_k,
+                "code_only": req.code_only, "version": rows[0].get("version") if rows else None, "results": results}
 
     # --- indexing ----------------------------------------------------------------------------------------------
     def stream_index(self, root: Path, out: Path, chunking: str, header: bool, before=None):
-        """NDJSON events for one indexing job. Raises 409 at once if another job is running."""
+        """Build or update a folder index, streamed (see stream_job)."""
+        return self.stream_job(lambda progress, note: cli.index_folder(
+            root, out, self.encoder, chunking, header=header, progress=progress, note=note), out, before)
+
+    def stream_versions(self, repo: Path, out: Path, commits: list[str], last: int | None, chunking: str,
+                        header: bool):
+        """Add commits of a git repository to a versioned index, streamed (see stream_job)."""
+        return self.stream_job(lambda progress, note: cli.index_repo_versions(
+            repo, out, self.encoder, commits, last, chunking, header=header, progress=progress, note=note), out)
+
+    def stream_job(self, run, out: Path, before=None):
+        """NDJSON events (log, progress, done / error) for one indexing job run(progress, note) -> result.
+
+        Raises 409 at once if another job is running.
+        """
         if not self._indexing.acquire(blocking=False):
             raise HTTPException(409, "another indexing job is running; wait for it to finish")
         events: queue.Queue = queue.Queue()
@@ -200,8 +222,7 @@ class Server:
                         last[0] = now
                         put("progress", done=done, total=total)
 
-                result = cli.index_folder(root, out, self.encoder, chunking, header=header, progress=progress,
-                                          note=lambda message: put("log", message=message))
+                result = run(progress, lambda message: put("log", message=message))
                 put("done", result=result, info=self.info(out.name))
             except (cli.IndexingError, HTTPException, OSError, zipfile.BadZipFile) as e:
                 put("error", message=getattr(e, "detail", None) or str(e))
@@ -275,10 +296,13 @@ def create_app(server: Server) -> FastAPI:
             name = body["index"]
             index_dir = server.index_dir(name)
             m = json.loads((index_dir / MANIFEST).read_text(encoding="utf-8"))
-            if m.get("source", {}).get("kind") != "directory":
+            kind, chunking = m.get("source", {}).get("kind"), m.get("chunking", {})
+            if kind == "git":  # add the repository's current HEAD; versions already indexed are kept
+                return server.stream_versions(Path(m["source"]["root"]), index_dir, ["HEAD"], None,
+                                              chunking.get("name", "windows"), bool(chunking.get("header")))
+            if kind != "directory":
                 raise HTTPException(400, f"{name} is not a folder index (the apps index is prebuilt: "
                                          "python -m index.build_apps)")
-            chunking = m.get("chunking", {})
             return server.stream_index(Path(m["source"]["root"]), index_dir, chunking.get("name", "windows"),
                                        bool(chunking.get("header")))
         if not body.get("path"):
@@ -288,9 +312,37 @@ def create_app(server: Server) -> FastAPI:
             raise HTTPException(400, f"{root} is not a folder on the server")
         chunking = body.get("chunking") or "windows"
         _check_chunking(chunking)
+        if (body.get("versions") or "").strip():
+            commits, last = parse_versions(body["versions"])
+            out = server.indexes_dir / cli.versions_index_dir(root).name
+            return server.stream_versions(root, out, commits, last, chunking, True)
         return server.stream_index(root, server.out_for(root), chunking, True)
 
     return app
+
+
+def parse_versions(spec: str) -> tuple[list[str], int | None]:
+    """"last 5" (or just "5") -> the last 5 commits; otherwise commit-ishes separated by spaces or commas."""
+    words = spec.replace(",", " ").split()
+    if words and words[0].lower() == "last":
+        words = words[1:]
+        if len(words) != 1 or not words[0].isdigit() or int(words[0]) < 1:
+            raise HTTPException(400, f"versions: expected 'last N', got {spec!r}")
+    if len(words) == 1 and words[0].isdigit() and len(words[0]) < 4:  # a short number is a count, not a sha
+        return [], int(words[0])
+    return words, None
+
+
+def _hits(row: dict) -> list[dict]:
+    """A result's hits: one per revision for a versioned index (matched one first), else the best chunk."""
+    if "versions" not in row:
+        best = row["chunks"][0]
+        return [{"version": None, "start_line": best["start_line"], "end_line": best["end_line"],
+                 "score": best["score"], "snippet": row["snippet"]}]
+    return [{"version": {"revision": v["revision"], "commits": v["commits"], "primary": v["primary"]},
+             "start_line": v["start_line"], "end_line": v["end_line"], "score": v["score"],
+             "similarity": v["similarity"], "contains_match": v["contains_match"], "match_line": v["match_line"],
+             "snippet": row["snippet"] if v["primary"] else None} for v in row["versions"]]
 
 
 def _check_chunking(name: str) -> None:

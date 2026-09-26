@@ -45,7 +45,7 @@ jobs:
 
       - name: Tests (no model load)
         run: |
-          for t in test_loaders_chunking test_index test_retrieval test_eval test_cli test_file_hash test_ast_chunks test_web; do
+          for t in test_loaders_chunking test_index test_retrieval test_eval test_cli test_file_hash test_ast_chunks test_versions test_web; do
             echo "::group::$t"
             docker run --rm --network none --entrypoint python "$IMAGE" -m tests.$t
             echo "::endgroup::"

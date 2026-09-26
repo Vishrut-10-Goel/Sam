@@ -64,7 +64,14 @@
   .score { margin-left: auto; font-variant-numeric: tabular-nums; }
   .badge { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--badge); }
   .flag { background: var(--warn-bg); color: var(--warn); padding: 8px 12px; font-weight: 600; }
-  .version { font-size: 12px; color: var(--muted); padding: 4px 12px 0; }
+  .versions { padding: 6px 12px 8px; border-top: 1px solid var(--line); font-size: 13px; display: grid; gap: 4px; }
+  .versions .vrow { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+  .versions .vkey { color: var(--muted); min-width: 9.5em; }
+  .chip { font-family: ui-monospace, Consolas, monospace; font-size: 12px; padding: 1px 7px; border-radius: 10px;
+          background: var(--badge); border: 1px solid transparent; }
+  .chip.best { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .chip.same { border-color: var(--ok); color: var(--ok); }
+  .chip .note { font-family: system-ui, sans-serif; color: var(--muted); font-weight: 400; }
   .code { margin: 0; background: var(--code-bg); max-height: 320px; overflow: auto; border-top: 1px solid var(--line);
           font: 13px/1.5 ui-monospace, Consolas, monospace; }
   .code div { display: flex; white-space: pre; }
@@ -89,6 +96,10 @@
     <label for="index-select" class="muted">Index</label>
     <select id="index-select" class="grow"></select>
     <button id="reindex" class="secondary" title="Re-read the index's source folder and update it incrementally">Re-index</button>
+  </div>
+  <div class="row" id="version-row" hidden style="margin-top:8px">
+    <label for="version-select" class="muted">Version</label>
+    <select id="version-select" class="grow"></select>
   </div>
   <dl id="index-info" class="info"></dl>
   <div id="reindex-progress" hidden>
@@ -117,6 +128,11 @@
       <h3>Folder on this machine</h3>
       <div class="row">
         <input type="text" id="folder-path" class="grow" placeholder="D:\path\to\repo" required>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input type="text" id="folder-versions" class="grow"
+               placeholder="Versions (git repo, optional): last 5, or v2.33.0 v2.34.2 HEAD"
+               title="Leave empty to index the folder as it is now. With versions, each commit is indexed into one versioned index; unchanged files reuse their embeddings.">
       </div>
       <div class="row" style="margin-top:8px">
         <label>Chunking <select id="folder-chunking"><option value="windows">windows (default)</option><option value="ast">ast (Python functions/classes)</option></select></label>
@@ -180,7 +196,9 @@ async function loadIndexes(select) {
   const sel = $("index-select");
   const want = select || sel.value || store.get("index");
   sel.replaceChildren(...indexes.map((i) => {
-    const o = el("option", null, `${i.name}  (${fmt(i.documents)} docs, ${i.chunking})`);
+    const o = el("option", null, i.versions
+      ? `${i.name}  (${i.versions.length} versions, ${fmt(i.documents)} file revisions, ${i.chunking})`
+      : `${i.name}  (${fmt(i.documents)} docs, ${i.chunking})`);
     o.value = i.name;
     return o;
   }));
@@ -197,17 +215,33 @@ function showInfo() {
   $("reindex-result").textContent = "";
   if (!i) { info.append(el("dt", null, "No indexes yet"), el("dd", null, "index a folder below")); return; }
   store.set("index", i.name);
+  const v = i.versions;
   const rows = [
     ["Source", i.source],
-    ["Documents", fmt(i.documents)],
+    ...(v ? [["Versions", `${v.length}: ${v.map((c) => c.label).join(", ")}`]] : []),
+    [v ? "File revisions" : "Documents", fmt(i.documents) + (v ? " (a file identical in several versions is stored once)" : "")],
     ["Chunks", fmt(i.chunks)],
     ["Chunking", (i.chunking === "none" ? "none (whole documents)" : i.chunking) + (i.header ? " + path/class/function header" : "")],
     ["Saved", i.saved_at || ""],
   ];
-  for (const [k, v] of rows) info.append(el("dt", null, k), el("dd", null, v));
+  for (const [k, val] of rows) info.append(el("dt", null, k), el("dd", null, val));
   $("reindex").disabled = !i.reindexable || busy;
-  $("reindex").title = i.reindexable ? "Re-read the index's source folder and update it incrementally"
-                                     : "The apps index is prebuilt from the dataset";
+  $("reindex").textContent = v ? "Add HEAD" : "Re-index";
+  $("reindex").title = v ? "Index the repository's current HEAD as a new version (the indexed versions are kept)"
+                     : i.reindexable ? "Re-read the index's source folder and update it incrementally"
+                     : "The apps index is prebuilt from the dataset";
+  // Version selector: all versions, or one of them (newest first).
+  $("version-row").hidden = !v;
+  const vs = $("version-select");
+  const keep = vs.value;
+  vs.replaceChildren(el("option", null, "All versions (one result per file; shows which versions match)"),
+                     ...(v || []).slice().reverse().map((c) => {
+                       const o = el("option", null, `${c.label} — ${c.date} — ${c.subject}`);
+                       o.value = c.sha;
+                       return o;
+                     }));
+  vs.firstChild.value = "all";
+  if (v && [...vs.options].some((o) => o.value === keep)) vs.value = keep;
   // Load the index now so the first search does not wait for it.
   api(`/api/indexes/${encodeURIComponent(i.name)}`).then((d) => {
     if (d.load_ms !== null) $("timing").textContent = `index loaded in ${fmt(Math.round(d.load_ms))} ms`;
@@ -261,6 +295,15 @@ function setBusy() {
 
 function summary(result) {
   const r = result;
+  if (r.mode === "versions") {
+    const frag = document.createDocumentFragment();
+    frag.append(el("span", "stat", `${r.commits_added.length} version${r.commits_added.length === 1 ? "" : "s"} added`),
+                el("span", null, ` (${r.commits} in the index) · ${fmt(r.revisions)} file revisions · ${fmt(r.chunks)} chunks stored,`
+                                 + ` ${fmt(r.chunks_if_separate)} if each version were indexed separately (${r.chunks_shared_pct}% shared)`
+                                 + ` · ${fmt(r.chunks_embedded)} chunks embedded · `),
+                el("span", "stat", `${r.seconds.toFixed(1)} s`));
+    return frag;
+  }
   const counts = r.mode === "built"
     ? `built: ${fmt(r.files)} files, ${fmt(r.chunks)} chunks`
     : `${fmt(r.added)} added · ${fmt(r.changed)} changed · ${fmt(r.deleted)} deleted · ${fmt(r.unchanged)} unchanged`;
@@ -290,7 +333,8 @@ $("reindex").addEventListener("click", async () => {
 $("folder-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   await indexNew({method: "POST", headers: {"Content-Type": "application/json"},
-                  body: JSON.stringify({path: $("folder-path").value.trim(), chunking: $("folder-chunking").value})});
+                  body: JSON.stringify({path: $("folder-path").value.trim(), chunking: $("folder-chunking").value,
+                                        versions: $("folder-versions").value.trim()})});
 });
 
 $("zip-form").addEventListener("submit", async (ev) => {
@@ -320,6 +364,7 @@ $("query").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); search(); }
 });
 $("code-only").addEventListener("change", () => { if ($("query").value.trim()) search(); });
+$("version-select").addEventListener("change", () => { if ($("query").value.trim()) search(); });
 
 async function search() {
   const i = current();
@@ -329,7 +374,8 @@ async function search() {
   const started = performance.now();
   try {
     const data = await api("/api/query", {index: i.name, query: q, top_k: Number($("top-k").value) || 5,
-                                           code_only: $("code-only").checked});
+                                           code_only: $("code-only").checked,
+                                           version: i.versions ? $("version-select").value : null});
     const roundTrip = performance.now() - started;
     const t = $("timing");
     t.replaceChildren(el("b", null, `${fmt(Math.round(data.query_ms))} ms`),
@@ -354,9 +400,11 @@ function renderResults(results) {
   box.replaceChildren();
   if (!results.length) { box.append(el("div", "muted empty", "No results.")); return; }
   for (const r of results) {
-    // One card per document; one block per hit. Today a document has one hit (the current version).
-    const worst = r.hits.some((h) => h.snippet.status === "stale") ? "stale"
-                : r.hits.some((h) => h.snippet.status === "missing") ? "missing" : "ok";
+    // One card per document. A versioned index gives one hit per revision of the file, the matched one first
+    // (with the snippet); a folder index gives one hit.
+    const shown = r.hits.filter((h) => h.snippet);
+    const worst = shown.some((h) => h.snippet.status === "stale") ? "stale"
+                : shown.some((h) => h.snippet.status === "missing") ? "missing" : "ok";
     const card = el("div", `result ${worst}`);
     const head = el("div", "rhead");
     const first = r.hits[0];
@@ -370,13 +418,38 @@ function renderResults(results) {
     }
     head.append(score);
     card.append(head);
-    for (const h of r.hits) {
-      if (h.version !== null) card.append(el("div", "version", `version ${h.version}`));
+    if (first.version) card.append(versionRows(r.hits));
+    for (const h of shown) {
       if (h.snippet.status !== "ok") { card.append(el("div", "flag", STATUS_TEXT[h.snippet.status] || h.snippet.status)); continue; }
       card.append(codeBlock(h));
     }
     box.append(card);
   }
+}
+
+// Which versions hold this result: the matched revision's versions, those holding the same lines (and where), and
+// those whose lines differ (with their own score). Chips are commits, labelled by tag where there is one.
+function versionRows(hits) {
+  const box = el("div", "versions");
+  // One chip per revision: the versions in which the file is identical, with the note (score or line) once.
+  const chips = (h, cls, note) => {
+    const chip = el("span", `chip ${cls}`, h.version.commits.map((c) => c.label).join(" · "));
+    chip.title = h.version.commits.map((c) => `${c.label}: ${c.sha}`).join("\n") + `\nrevision ${h.version.revision}`;
+    if (note) chip.append(el("span", "note", ` ${note}`));
+    return [chip];
+  };
+  const row = (key, items) => {
+    const r = el("div", "vrow");
+    r.append(el("span", "vkey", key), ...items);
+    box.append(r);
+  };
+  const [primary, ...others] = hits;
+  row("Matched in", chips(primary, "best"));
+  const same = others.filter((h) => h.contains_match === true);
+  const differ = others.filter((h) => h.contains_match === false);
+  if (same.length) row("Same lines also in", same.flatMap((h) => chips(h, "same", h.match_line !== primary.start_line ? `(line ${h.match_line})` : "")));
+  if (differ.length) row("Lines differ in", differ.flatMap((h) => chips(h, "", `(score ${h.score.toFixed(4)})`)));
+  return box;
 }
 
 // The whole chunk, scrolled to its focus line (where the query's words cluster); lines holding a query word are marked.

@@ -81,10 +81,16 @@ class Retriever:
         self._embeddings = index.embeddings[self._order]  # rows in grouped order
 
         # Per-document score adjustment by file kind: 0 for code, -kind_penalty for tests/docs (-inf: dropped).
-        self._kinds = [file_kind(d) for d in doc_ids]
+        # A versioned index's documents are revisions ("<path>@<hash>"); their kind comes from the path.
+        self._kinds = [file_kind(index.documents[d].metadata.get("path", d)) for d in doc_ids]
         is_code = np.array([k == "code" for k in self._kinds], dtype=bool)
         other = -np.inf if code_only else -float(kind_penalty)
         self._adjust = np.where(is_code, 0.0, other).astype(np.float32)
+
+    @property
+    def doc_ids(self) -> list[str]:
+        """The documents that can be returned (those with at least one chunk)."""
+        return self._doc_ids
 
     def search(self, query: str, top_k: int = DEFAULT_TOP_K) -> list[DocResult]:
         return self.search_many([query], top_k)[0]

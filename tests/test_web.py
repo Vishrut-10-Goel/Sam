@@ -111,6 +111,47 @@ def test_zip_upload_and_unsafe_zip():
         assert not server._indexing.locked()  # a failed job releases the lock
 
 
+def test_versioned_index_search_and_add_head():
+    from tests.test_versions import _git, _repo as _git_repo
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        client, _ = _client(tmp)
+        repo = tmp / "repo"
+        shas = _git_repo(repo)  # commits tagged v1, v2, v3
+        done = _events(client.post("/api/index", json={"path": str(repo), "versions": "v1, v2"}))[-1]
+        assert done["event"] == "done" and done["result"]["mode"] == "versions", done
+        assert [c["label"] for c in done["result"]["commits_added"]] == ["v1", "v2"]
+        info = done["info"]
+        assert [v["label"] for v in info["versions"]] == ["v1", "v2"] and info["reindexable"] is True
+        name = info["name"]
+
+        query = {"index": name, "query": "def alpha_3(x):\n    return x * 3\n", "top_k": 10}
+        data = client.post("/api/query", json=query).json()
+        assert data["version"] is None
+        paths = [r["doc_id"] for r in data["results"]]
+        assert len(paths) == len(set(paths))  # one result per file across versions
+        a = next(r for r in data["results"] if r["doc_id"] == "pkg/a.py")
+        assert a["hits"][0]["version"]["primary"] and a["hits"][0]["snippet"]["status"] == "ok"
+        assert [c["label"] for c in a["hits"][0]["version"]["commits"]] == ["v1", "v2"]  # a.py same in v1 and v2
+        b = next(r for r in data["results"] if r["doc_id"] == "pkg/b.py")
+        assert len(b["hits"]) == 2 and b["hits"][1]["snippet"] is None and b["hits"][1]["contains_match"] is not None
+
+        one = client.post("/api/query", json={**query, "version": "v1"}).json()
+        assert one["version"] == shas[0] and "pkg/c.py" not in {r["doc_id"] for r in one["results"]}
+        assert client.post("/api/query", json={**query, "version": "v9"}).status_code == 400
+
+        # "Add HEAD": the repository's current HEAD (v3) becomes a new version; v1 and v2 are kept.
+        done = _events(client.post("/api/index", json={"index": name}))[-1]
+        assert done["event"] == "done" and [c["label"] for c in done["result"]["commits_added"]] == ["v3"]
+        assert [v["label"] for v in client.get("/api/indexes").json()["indexes"][0]["versions"]] == ["v1", "v2", "v3"]
+        assert _git(repo, "rev-parse", "HEAD").strip() == shas[-1]
+        # A version on an index without versions is a 400, not ignored.
+        root = tmp / "plain"
+        _repo(root)
+        plain = _events(client.post("/api/index", json={"path": str(root)}))[-1]["info"]["name"]
+        assert client.post("/api/query", json={"index": plain, "query": "x", "version": "v1"}).status_code == 400
+
+
 def test_errors():
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)

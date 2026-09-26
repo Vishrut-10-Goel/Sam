@@ -1,13 +1,14 @@
 """Chunk text for search results, read from the document's source.
 
 The index stores chunk positions, not text, so snippets come from the source: the file on disk for
-directory indexes, the dataset for apps. The source is checked against the content hash recorded at indexing
-time; if it changed, its line numbers may no longer match the index, so the snippet is reported stale
-rather than showing the wrong lines.
+directory indexes, the dataset for apps, git objects for versioned (git) indexes. The source is checked against
+the content hash recorded at indexing time; if it changed, its line numbers may no longer match the index, so the
+snippet is reported stale rather than showing the wrong lines. A git revision never changes, so it is read once.
 """
 from __future__ import annotations
 
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,6 +34,7 @@ class SnippetReader:
         self.index = index
         self._files: dict[str, tuple[tuple[int, int], str | None]] = {}  # doc_id -> (stat stamp, text)
         self._apps: dict[str, str] | None = None
+        self._revisions: dict[str, str | None] = {}  # versioned indexes: doc_id -> text (immutable)
 
     def _apps_text(self, doc_id: str) -> str | None:
         if self._apps is None:
@@ -41,13 +43,38 @@ class SnippetReader:
         return self._apps.get(doc_id)
 
     def preload(self) -> None:
-        """Load what the first snippet would otherwise wait for (the apps dataset; nothing for file sources)."""
+        """Load what the first snippets would otherwise wait for: the apps dataset, or every revision of a versioned
+        index (one git process each, run in parallel; a search across versions reads several revisions per result).
+        Nothing for file sources."""
         if self.index.source.get("kind") == "apps" and self._apps is None:
             self._apps_text("")
+        if self.index.source.get("kind") == "git":
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                list(pool.map(self._git_text, [d for d in self.index.documents if d not in self._revisions]))
+
+    def _git_text(self, doc_id: str) -> str | None:
+        """A revision's text from git, with the same filters (line endings) as a checkout of that commit."""
+        if doc_id not in self._revisions:
+            meta = self.index.documents[doc_id].metadata
+            r = subprocess.run(["git", "-C", self.index.source["root"], "cat-file", "--filters",
+                                f"{meta['versions'][0]}:{meta['path']}"], capture_output=True)
+            try:
+                self._revisions[doc_id] = r.stdout.decode("utf-8-sig") if r.returncode == 0 else None
+            except UnicodeDecodeError:
+                self._revisions[doc_id] = None
+        return self._revisions[doc_id]
+
+    def text(self, doc_id: str) -> str | None:
+        """The document's whole current text if it still matches the index, else None (stale or missing)."""
+        text = self._read(doc_id)
+        return text if text is not None and content_hash(text) == self.index.documents[doc_id].content_hash else None
 
     def _read(self, doc_id: str) -> str | None:
         if self.index.source.get("kind") == "apps":
             return self._apps_text(doc_id)
+        if self.index.source.get("kind") == "git":
+            return self._git_text(doc_id)
         try:
             path = Path(self.index.documents[doc_id].metadata["source_path"])
             st = path.stat()

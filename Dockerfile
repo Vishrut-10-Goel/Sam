@@ -19,6 +19,11 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# git: versioned indexes (cli.py index-versions) read commits from a repository with it.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+
 # CPU-only PyTorch first, from its own index, so sentence-transformers does not pull in the CUDA build
 # (several GB). PyTorch is only used by the parity test, baselines and benchmarks; retrieval runs on onnxruntime.
 RUN pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu

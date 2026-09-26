@@ -25,7 +25,9 @@ snippets. On the AppsRetrieval test split it scores **NDCG@10 0.57545 / MRR@10 0
   JSON (`appsretrieval_results.json`, produced by `python -m eval.run_apps_cpu`).
 - **P1 — Retrieval across versions:** incremental index updates (only new or changed files are re-embedded) and
   stale-snippet detection (results from files that changed since indexing are flagged, not shown with wrong lines).
-- **Bonus — Evolutionary retrieval** across all versions of a snippet: not started.
+- **Bonus — Evolutionary retrieval** across all versions of the code: `cli.py index-versions` and the web page's
+  version selector; one result per file, showing which versions hold the match
+  ([report](reports/versions_check.md)).
 
 ## Approach
 
@@ -183,6 +185,11 @@ chunk) put the right file in the top 3 for **10/10** (MRR 0.867), rescuing the v
 is a small sample and the penalty was chosen after seeing them; details in the report. Neither fix touches the
 apps path (P0 results are unchanged).
 
+**Retrieval across versions** ([report](reports/versions_check.md)). Six requests releases in one index: 1,014 s vs
+2,042 s for six separate builds, 788 chunks embedded vs 1,871, vectors identical to separate builds. Ranked directly,
+the top 10 held only 2-4 distinct files (one file in five versions); grouped by file, each result lists which
+versions hold the matched lines and which differ.
+
 **AST chunking vs line windows** ([report](reports/requests_chunking_check.md)). On 10 fresh questions over
 psf/requests, answers pre-registered from the source: a tie on every measure (strict top-1 7/10, right file first
 8/10, in the top 3 10/10, MRR 0.900 for both). AST cites tighter spans (median 30 vs 83 lines) and builds 11% faster
@@ -199,12 +206,12 @@ but won two questions and lost two, so it stays opt-in (`--chunking ast`) and `w
 | `loaders/directory.py` | A folder of source files as Documents (skip rules, `.gitignore`, stable path IDs) |
 | `chunking/` | `none` (whole document), `windows` (line-aligned, token-budgeted, overlapping; default) and `ast` (Python functions/classes; opt-in) chunkers |
 | `embedding/onnx_encoder.py` | Shared CPU encoder: gte-modernbert-base fp32 ONNX via onnxruntime (CLS pooling, max 1024 tokens) |
-| `index/` | Index build, incremental update, fingerprint check, atomic save/load; `build_apps.py` builds `indexes/apps` |
+| `index/` | Index build, incremental update, fingerprint check, atomic save/load; `versions.py` versioned (git) indexes; `build_apps.py` builds `indexes/apps` |
 | `retrieval/` | Query embedding, cosine scoring, chunk → document grouping, snippets with stale detection and query-focused display |
 | `eval/run_apps_cpu.py` | **Submission:** MTEB evaluation of the CPU encoder, writes `appsretrieval_results.json` |
 | `eval/apps_pipeline.py`, `eval/metrics.py` | Real-pipeline AppsRetrieval evaluation and MTEB-compatible NDCG / MRR |
 | `indexes/apps/` | Prebuilt AppsRetrieval index (committed; folder indexes built with `cli.py index` stay local) |
-| `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash`, `test_ast_chunks`, `test_web` (tokenizer only) |
+| `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash`, `test_ast_chunks`, `test_versions`, `test_web` (tokenizer only) |
 | `experiments/` | Model selection and benchmark scripts (baselines, ONNX / PyTorch timing, dataset stats) and their logs in `experiments/logs/`; see [experiments/README.md](experiments/README.md) |
 | `reports/` | Experiment reports with their scripts and raw data: the Scrapy retrieval check, AST vs windows chunking on requests, cross-encoder re-ranking and pseudo-relevance feedback on AppsRetrieval |
 | `appsretrieval_results.json` | **P0 submission:** MTEB results JSON (CPU, fp32 ONNX) |
@@ -299,6 +306,10 @@ python cli.py query "where is the retry logic" --index indexes\myrepo --code-onl
 # terminal after an edit) is picked up automatically, and edited files show as stale until re-indexed.
 python cli.py query --index indexes\myrepo --interactive
 
+# Versioned index of several commits of a git repo (its working tree is not touched); query it like any index,
+# optionally with --version <tag or sha prefix>
+python cli.py index-versions D:\path	oepo --last 5
+
 # Search the prebuilt AppsRetrieval index
 python cli.py query "count the ways to climb n stairs taking 1 or 2 steps" --index indexes\apps
 
@@ -357,6 +368,7 @@ python -m tests.test_eval
 python -m tests.test_cli
 python -m tests.test_file_hash
 python -m tests.test_ast_chunks
+python -m tests.test_versions
 python -m tests.test_web              # the web server, with a fake encoder
 python -m tests.test_onnx_parity        # loads the ONNX and PyTorch models (~3 GB RAM)
 ```

@@ -1,0 +1,1540 @@
+{
+ "index": "indexes\\requests-versions",
+ "versions": [
+  "v2.32.5",
+  "v2.33.0",
+  "v2.33.1",
+  "v2.34.0",
+  "v2.34.2",
+  "611c616"
+ ],
+ "queries": [
+  {
+   "query": "how are redirects handled",
+   "ms": 702.4,
+   "grouped": [
+    {
+     "path": "src/requests/sessions.py",
+     "lines": [
+      100,
+      190
+     ],
+     "score": 0.703105,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.2",
+       100
+      ],
+      [
+       "v2.34.0",
+       100
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.695325
+      ],
+      [
+       "v2.32.5",
+       0.695325
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/models.py",
+     "lines": [
+      682,
+      781
+     ],
+     "score": 0.67056,
+     "matched_in": [
+      "v2.33.0",
+      "v2.33.1"
+     ],
+     "same_lines_in": [
+      [
+       "v2.32.5",
+       680
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "611c616",
+       0.639442
+      ],
+      [
+       "v2.34.2",
+       0.631078
+      ],
+      [
+       "v2.34.0",
+       0.620968
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/utils.py",
+     "lines": [
+      1033,
+      1086
+     ],
+     "score": 0.61844,
+     "matched_in": [
+      "v2.32.5"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.0",
+       1033
+      ],
+      [
+       "v2.33.1",
+       1030
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "611c616",
+       0.596452
+      ],
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.59554
+      ]
+     ]
+    },
+    {
+     "path": "tests/test_requests.py",
+     "lines": [
+      251,
+      329
+     ],
+     "score": 0.595741,
+     "matched_in": [
+      "v2.33.1"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.0",
+       251
+      ],
+      [
+       "v2.32.5",
+       249
+      ],
+      [
+       "611c616",
+       259
+      ],
+      [
+       "v2.34.2",
+       259
+      ],
+      [
+       "v2.34.0",
+       259
+      ]
+     ],
+     "lines_differ_in": []
+    },
+    {
+     "path": "src/requests/auth.py",
+     "lines": [
+      258,
+      342
+     ],
+     "score": 0.594499,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.582416
+      ],
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.572699
+      ],
+      [
+       "v2.32.5",
+       0.572699
+      ]
+     ]
+    }
+   ],
+   "ungrouped_top10": [
+    {
+     "revision": "src/requests/sessions.py@03cef27dd6ce",
+     "path": "src/requests/sessions.py",
+     "score": 0.7031,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@04a63e937354",
+     "path": "src/requests/sessions.py",
+     "score": 0.6961,
+     "versions": [
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@06ee56705806",
+     "path": "src/requests/sessions.py",
+     "score": 0.6961,
+     "versions": [
+      "v2.34.0"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@2222be2b2305",
+     "path": "src/requests/sessions.py",
+     "score": 0.6953,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@42f72303ecde",
+     "path": "src/requests/sessions.py",
+     "score": 0.6953,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@bcb71024489b",
+     "path": "src/requests/models.py",
+     "score": 0.6706,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@df0f615771b4",
+     "path": "src/requests/models.py",
+     "score": 0.6706,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@2d4b5a273825",
+     "path": "src/requests/models.py",
+     "score": 0.6394,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@2e771a7067b7",
+     "path": "src/requests/models.py",
+     "score": 0.6311,
+     "versions": [
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@73aed5e4817a",
+     "path": "src/requests/models.py",
+     "score": 0.621,
+     "versions": [
+      "v2.34.0"
+     ]
+    }
+   ],
+   "ungrouped_distinct_files": 2
+  },
+  {
+   "query": "how do I configure retries",
+   "ms": 324.8,
+   "grouped": [
+    {
+     "path": "src/requests/adapters.py",
+     "lines": [
+      180,
+      280
+     ],
+     "score": 0.610142,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       180
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       0.586779
+      ],
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.584035
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/exceptions.py",
+     "lines": [
+      1,
+      139
+     ],
+     "score": 0.583007,
+     "matched_in": [
+      "v2.33.0",
+      "v2.33.1"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       0.580741
+      ],
+      [
+       "v2.34.0",
+       "v2.34.2",
+       "611c616",
+       0.558035
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/__init__.py",
+     "lines": [
+      191,
+      219
+     ],
+     "score": 0.562206,
+     "matched_in": [
+      "v2.34.0",
+      "v2.34.2"
+     ],
+     "same_lines_in": [
+      [
+       "611c616",
+       191
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.52545
+      ],
+      [
+       "v2.32.5",
+       0.518451
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/sessions.py",
+     "lines": [
+      99,
+      193
+     ],
+     "score": 0.558486,
+     "matched_in": [
+      "v2.33.0",
+      "v2.33.1"
+     ],
+     "same_lines_in": [
+      [
+       "v2.32.5",
+       98
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "611c616",
+       0.549354
+      ],
+      [
+       "v2.34.2",
+       0.548843
+      ],
+      [
+       "v2.34.0",
+       0.548843
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/models.py",
+     "lines": [
+      811,
+      907
+     ],
+     "score": 0.556238,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.2",
+       809
+      ],
+      [
+       "v2.34.0",
+       809
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.541379
+      ],
+      [
+       "v2.32.5",
+       0.541379
+      ]
+     ]
+    }
+   ],
+   "ungrouped_top10": [
+    {
+     "revision": "src/requests/adapters.py@88435a18a77d",
+     "path": "src/requests/adapters.py",
+     "score": 0.6101,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/adapters.py@0811e1f37aa7",
+     "path": "src/requests/adapters.py",
+     "score": 0.6052,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/adapters.py@3c6fed10c88d",
+     "path": "src/requests/adapters.py",
+     "score": 0.5868,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/adapters.py@cc47222b00ae",
+     "path": "src/requests/adapters.py",
+     "score": 0.584,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/exceptions.py@f80b7616283f",
+     "path": "src/requests/exceptions.py",
+     "score": 0.583,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/exceptions.py@dfb984293473",
+     "path": "src/requests/exceptions.py",
+     "score": 0.5807,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/__init__.py@1d30f45c5434",
+     "path": "src/requests/__init__.py",
+     "score": 0.5622,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@2222be2b2305",
+     "path": "src/requests/sessions.py",
+     "score": 0.5585,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@42f72303ecde",
+     "path": "src/requests/sessions.py",
+     "score": 0.5585,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/exceptions.py@dffbf296afc6",
+     "path": "src/requests/exceptions.py",
+     "score": 0.558,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2",
+      "611c616"
+     ]
+    }
+   ],
+   "ungrouped_distinct_files": 4
+  },
+  {
+   "query": "where is HTTP basic authentication implemented",
+   "ms": 32.7,
+   "grouped": [
+    {
+     "path": "src/requests/auth.py",
+     "lines": [
+      1,
+      111
+     ],
+     "score": 0.723453,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.711351
+      ],
+      [
+       "v2.32.5",
+       0.684039
+      ],
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.680747
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/models.py",
+     "lines": [
+      587,
+      694
+     ],
+     "score": 0.613722,
+     "matched_in": [
+      "v2.33.0",
+      "v2.33.1"
+     ],
+     "same_lines_in": [
+      [
+       "v2.32.5",
+       585
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "611c616",
+       0.587155
+      ],
+      [
+       "v2.34.0",
+       0.58588
+      ],
+      [
+       "v2.34.2",
+       0.585606
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/__init__.py",
+     "lines": [
+      1,
+      103
+     ],
+     "score": 0.612528,
+     "matched_in": [
+      "v2.33.0",
+      "v2.33.1"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       0.612288
+      ],
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.589932
+      ],
+      [
+       "611c616",
+       0.584016
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/utils.py",
+     "lines": [
+      1003,
+      1093
+     ],
+     "score": 0.611888,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       1003
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       0.600182
+      ],
+      [
+       "v2.32.5",
+       0.598052
+      ],
+      [
+       "v2.33.1",
+       0.595697
+      ]
+     ]
+    },
+    {
+     "path": "tests/test_requests.py",
+     "lines": [
+      673,
+      767
+     ],
+     "score": 0.595759,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.2",
+       673
+      ],
+      [
+       "v2.34.0",
+       673
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.1",
+       0.580093
+      ],
+      [
+       "v2.32.5",
+       0.580093
+      ],
+      [
+       "v2.33.0",
+       0.580093
+      ]
+     ]
+    }
+   ],
+   "ungrouped_top10": [
+    {
+     "revision": "src/requests/auth.py@c35ba30ee054",
+     "path": "src/requests/auth.py",
+     "score": 0.7235,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/auth.py@0c7e0c2472bf",
+     "path": "src/requests/auth.py",
+     "score": 0.7114,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/auth.py@f9321b185587",
+     "path": "src/requests/auth.py",
+     "score": 0.684,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/auth.py@dfe25895bf7f",
+     "path": "src/requests/auth.py",
+     "score": 0.6807,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@df0f615771b4",
+     "path": "src/requests/models.py",
+     "score": 0.6137,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@bcb71024489b",
+     "path": "src/requests/models.py",
+     "score": 0.6137,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/__init__.py@604303d4f9f6",
+     "path": "src/requests/__init__.py",
+     "score": 0.6125,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/__init__.py@43df72db850e",
+     "path": "src/requests/__init__.py",
+     "score": 0.6123,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@28ce541f22ac",
+     "path": "src/requests/utils.py",
+     "score": 0.6119,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@8cc49c711289",
+     "path": "src/requests/utils.py",
+     "score": 0.6119,
+     "versions": [
+      "611c616"
+     ]
+    }
+   ],
+   "ungrouped_distinct_files": 4
+  },
+  {
+   "query": "parse the parameters of a Content-Type header",
+   "ms": 226.1,
+   "grouped": [
+    {
+     "path": "src/requests/utils.py",
+     "lines": [
+      375,
+      473
+     ],
+     "score": 0.689688,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       375
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       0.681697
+      ],
+      [
+       "v2.33.0",
+       0.672308
+      ],
+      [
+       "v2.33.1",
+       0.672308
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/models.py",
+     "lines": [
+      492,
+      598
+     ],
+     "score": 0.676444,
+     "matched_in": [
+      "v2.33.0",
+      "v2.33.1"
+     ],
+     "same_lines_in": [
+      [
+       "v2.32.5",
+       490
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.34.2",
+       0.6552
+      ],
+      [
+       "v2.34.0",
+       0.6552
+      ],
+      [
+       "611c616",
+       0.651391
+      ]
+     ]
+    },
+    {
+     "path": "tests/test_utils.py",
+     "lines": [
+      572,
+      683
+     ],
+     "score": 0.633323,
+     "matched_in": [
+      "v2.34.0",
+      "v2.34.2",
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.1",
+       572
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       0.63293
+      ],
+      [
+       "v2.32.5",
+       0.619355
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/_types.py",
+     "lines": [
+      93,
+      183
+     ],
+     "score": 0.625291,
+     "matched_in": [
+      "v2.34.2"
+     ],
+     "same_lines_in": [
+      [
+       "611c616",
+       98
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.34.0",
+       0.623557
+      ]
+     ]
+    },
+    {
+     "path": "tests/test_requests.py",
+     "lines": [
+      1788,
+      1881
+     ],
+     "score": 0.593449,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.2",
+       1762
+      ],
+      [
+       "v2.34.0",
+       1762
+      ],
+      [
+       "v2.33.1",
+       1754
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       0.567047
+      ],
+      [
+       "v2.32.5",
+       0.567047
+      ]
+     ]
+    }
+   ],
+   "ungrouped_top10": [
+    {
+     "revision": "src/requests/utils.py@8cc49c711289",
+     "path": "src/requests/utils.py",
+     "score": 0.6897,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@cc378c150377",
+     "path": "src/requests/utils.py",
+     "score": 0.6817,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@bcb71024489b",
+     "path": "src/requests/models.py",
+     "score": 0.6764,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@df0f615771b4",
+     "path": "src/requests/models.py",
+     "score": 0.6764,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@28ce541f22ac",
+     "path": "src/requests/utils.py",
+     "score": 0.6729,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@cdc93ad2521c",
+     "path": "src/requests/utils.py",
+     "score": 0.6723,
+     "versions": [
+      "v2.33.0"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@19c47903a505",
+     "path": "src/requests/utils.py",
+     "score": 0.6723,
+     "versions": [
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@2e771a7067b7",
+     "path": "src/requests/models.py",
+     "score": 0.6552,
+     "versions": [
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@73aed5e4817a",
+     "path": "src/requests/models.py",
+     "score": 0.6552,
+     "versions": [
+      "v2.34.0"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@2d4b5a273825",
+     "path": "src/requests/models.py",
+     "score": 0.6514,
+     "versions": [
+      "611c616"
+     ]
+    }
+   ],
+   "ungrouped_distinct_files": 2
+  },
+  {
+   "query": "how are proxy settings read from the environment",
+   "ms": 111.7,
+   "grouped": [
+    {
+     "path": "src/requests/sessions.py",
+     "lines": [
+      743,
+      847
+     ],
+     "score": 0.712496,
+     "matched_in": [
+      "v2.34.0"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.2",
+       743
+      ],
+      [
+       "611c616",
+       743
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       0.620886
+      ],
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.61385
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/utils.py",
+     "lines": [
+      756,
+      859
+     ],
+     "score": 0.711198,
+     "matched_in": [
+      "v2.32.5"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.1",
+       753
+      ],
+      [
+       "v2.33.0",
+       756
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.704585
+      ],
+      [
+       "611c616",
+       0.694282
+      ]
+     ]
+    },
+    {
+     "path": "tests/test_utils.py",
+     "lines": [
+      962,
+      977
+     ],
+     "score": 0.674584,
+     "matched_in": [
+      "v2.32.5"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.1",
+       975
+      ],
+      [
+       "v2.34.0",
+       "v2.34.2",
+       "611c616",
+       998
+      ],
+      [
+       "v2.33.0",
+       972
+      ]
+     ],
+     "lines_differ_in": []
+    },
+    {
+     "path": "src/requests/adapters.py",
+     "lines": [
+      500,
+      596
+     ],
+     "score": 0.651301,
+     "matched_in": [
+      "v2.32.5"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       501
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "611c616",
+       0.626885
+      ],
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.623132
+      ]
+     ]
+    },
+    {
+     "path": "docs/user/advanced.rst",
+     "lines": [
+      664,
+      747
+     ],
+     "score": 0.605228,
+     "matched_in": [
+      "v2.34.0",
+      "v2.34.2",
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       663
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       0.600161
+      ]
+     ]
+    }
+   ],
+   "ungrouped_top10": [
+    {
+     "revision": "src/requests/sessions.py@06ee56705806",
+     "path": "src/requests/sessions.py",
+     "score": 0.7125,
+     "versions": [
+      "v2.34.0"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@cc378c150377",
+     "path": "src/requests/utils.py",
+     "score": 0.7112,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@19c47903a505",
+     "path": "src/requests/utils.py",
+     "score": 0.7058,
+     "versions": [
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@28ce541f22ac",
+     "path": "src/requests/utils.py",
+     "score": 0.7046,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@cdc93ad2521c",
+     "path": "src/requests/utils.py",
+     "score": 0.6981,
+     "versions": [
+      "v2.33.0"
+     ]
+    },
+    {
+     "revision": "src/requests/utils.py@8cc49c711289",
+     "path": "src/requests/utils.py",
+     "score": 0.6943,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@04a63e937354",
+     "path": "src/requests/sessions.py",
+     "score": 0.6809,
+     "versions": [
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "tests/test_utils.py@903b548366cd",
+     "path": "tests/test_utils.py",
+     "score": 0.6746,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/sessions.py@03cef27dd6ce",
+     "path": "src/requests/sessions.py",
+     "score": 0.6607,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/adapters.py@3c6fed10c88d",
+     "path": "src/requests/adapters.py",
+     "score": 0.6513,
+     "versions": [
+      "v2.32.5"
+     ]
+    }
+   ],
+   "ungrouped_distinct_files": 4
+  },
+  {
+   "query": "where does it raise an exception for 4xx and 5xx responses",
+   "ms": 88.5,
+   "grouped": [
+    {
+     "path": "src/requests/models.py",
+     "lines": [
+      811,
+      907
+     ],
+     "score": 0.634163,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.0",
+       809
+      ],
+      [
+       "v2.34.2",
+       809
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.593988
+      ],
+      [
+       "v2.32.5",
+       0.593988
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/exceptions.py",
+     "lines": [
+      1,
+      138
+     ],
+     "score": 0.619525,
+     "matched_in": [
+      "v2.32.5"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.617392
+      ],
+      [
+       "v2.34.0",
+       "v2.34.2",
+       "611c616",
+       0.605169
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/status_codes.py",
+     "lines": [
+      78,
+      128
+     ],
+     "score": 0.581011,
+     "matched_in": [
+      "v2.34.0",
+      "v2.34.2",
+      "611c616"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.32.5",
+       "v2.33.0",
+       "v2.33.1",
+       0.57415
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/auth.py",
+     "lines": [
+      258,
+      342
+     ],
+     "score": 0.577498,
+     "matched_in": [
+      "611c616"
+     ],
+     "same_lines_in": [],
+     "lines_differ_in": [
+      [
+       "v2.34.0",
+       "v2.34.2",
+       0.566221
+      ],
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.533198
+      ],
+      [
+       "v2.32.5",
+       0.533198
+      ]
+     ]
+    },
+    {
+     "path": "src/requests/sessions.py",
+     "lines": [
+      97,
+      183
+     ],
+     "score": 0.568652,
+     "matched_in": [
+      "v2.34.2"
+     ],
+     "same_lines_in": [
+      [
+       "v2.34.0",
+       97
+      ],
+      [
+       "611c616",
+       97
+      ]
+     ],
+     "lines_differ_in": [
+      [
+       "v2.33.0",
+       "v2.33.1",
+       0.559461
+      ],
+      [
+       "v2.32.5",
+       0.559461
+      ]
+     ]
+    }
+   ],
+   "ungrouped_top10": [
+    {
+     "revision": "src/requests/models.py@2d4b5a273825",
+     "path": "src/requests/models.py",
+     "score": 0.6342,
+     "versions": [
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@73aed5e4817a",
+     "path": "src/requests/models.py",
+     "score": 0.6333,
+     "versions": [
+      "v2.34.0"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@2e771a7067b7",
+     "path": "src/requests/models.py",
+     "score": 0.6289,
+     "versions": [
+      "v2.34.2"
+     ]
+    },
+    {
+     "revision": "src/requests/exceptions.py@dfb984293473",
+     "path": "src/requests/exceptions.py",
+     "score": 0.6195,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/exceptions.py@f80b7616283f",
+     "path": "src/requests/exceptions.py",
+     "score": 0.6174,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/exceptions.py@dffbf296afc6",
+     "path": "src/requests/exceptions.py",
+     "score": 0.6052,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2",
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@df0f615771b4",
+     "path": "src/requests/models.py",
+     "score": 0.594,
+     "versions": [
+      "v2.32.5"
+     ]
+    },
+    {
+     "revision": "src/requests/models.py@bcb71024489b",
+     "path": "src/requests/models.py",
+     "score": 0.594,
+     "versions": [
+      "v2.33.0",
+      "v2.33.1"
+     ]
+    },
+    {
+     "revision": "src/requests/status_codes.py@29551ca44d5f",
+     "path": "src/requests/status_codes.py",
+     "score": 0.581,
+     "versions": [
+      "v2.34.0",
+      "v2.34.2",
+      "611c616"
+     ]
+    },
+    {
+     "revision": "src/requests/auth.py@c35ba30ee054",
+     "path": "src/requests/auth.py",
+     "score": 0.5775,
+     "versions": [
+      "611c616"
+     ]
+    }
+   ],
+   "ungrouped_distinct_files": 4
+  }
+ ],
+ "per_version": {
+  "query": "how are proxy settings read from the environment",
+  "results": {
+   "v2.33.0": [
+    {
+     "path": "src/requests/utils.py",
+     "revision": "src/requests/utils.py@cdc93ad2521c",
+     "score": 0.698062,
+     "focus_line": 851,
+     "lines": [
+      "    return proxy",
+      "",
+      "",
+      "def resolve_proxies(request, proxies, trust_env=True):",
+      "    \"\"\"This method takes proxy information from a request and configuration",
+      "    input to resolve a mapping of target proxies. This will consider settings",
+      "    such as NO_PROXY to strip proxy configurations.",
+      ""
+     ]
+    },
+    {
+     "path": "src/requests/adapters.py",
+     "revision": "src/requests/adapters.py@cc47222b00ae",
+     "score": 0.634165,
+     "focus_line": 589,
+     "lines": [
+      "        return headers",
+      "",
+      "    def send(",
+      "        self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None",
+      "    ):",
+      "        \"\"\"Sends PreparedRequest object. Returns Response object.",
+      "",
+      "        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent."
+     ]
+    }
+   ],
+   "v2.34.0": [
+    {
+     "path": "src/requests/sessions.py",
+     "revision": "src/requests/sessions.py@06ee56705806",
+     "score": 0.712496,
+     "focus_line": 831,
+     "lines": [
+      "    def merge_environment_settings(",
+      "        self,",
+      "        url: str,",
+      "        proxies: dict[str, str] | None,",
+      "        stream: bool | None,",
+      "        verify: _t.VerifyType | None,",
+      "        cert: _t.CertType,",
+      "    ) -> dict[str, Any]:"
+     ]
+    },
+    {
+     "path": "src/requests/utils.py",
+     "revision": "src/requests/utils.py@28ce541f22ac",
+     "score": 0.704585,
+     "focus_line": 873,
+     "lines": [
+      "def get_environ_proxies(url: str, no_proxy: str | None = None) -> dict[str, str]:",
+      "    \"\"\"",
+      "    Return a dict of environment proxies.",
+      "",
+      "    :rtype: dict",
+      "    \"\"\"",
+      "    if should_bypass_proxies(url, no_proxy=no_proxy):",
+      "        return {}"
+     ]
+    }
+   ]
+  }
+ }
+}

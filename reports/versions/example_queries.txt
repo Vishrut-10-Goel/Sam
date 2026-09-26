@@ -1,0 +1,235 @@
+
+### 'how are redirects handled'  (702 ms)
+grouped (one result per file):
+  1. src/requests/sessions.py:100-190  score 0.7031
+       matched in: 611c616
+       same lines also in: v2.34.2 (at line 100); v2.34.0 (at line 100)
+       lines differ in: v2.33.0, v2.33.1 (score 0.6953); v2.32.5 (score 0.6953)
+  2. src/requests/models.py:682-781  score 0.6706
+       matched in: v2.33.0, v2.33.1
+       same lines also in: v2.32.5 (at line 680)
+       lines differ in: 611c616 (score 0.6394); v2.34.2 (score 0.6311); v2.34.0 (score 0.6210)
+  3. src/requests/utils.py:1033-1086  score 0.6184
+       matched in: v2.32.5
+       same lines also in: v2.33.0 (at line 1033); v2.33.1 (at line 1030)
+       lines differ in: 611c616 (score 0.5965); v2.34.0, v2.34.2 (score 0.5955)
+  4. tests/test_requests.py:251-329  score 0.5957
+       matched in: v2.33.1
+       same lines also in: v2.33.0 (at line 251); v2.32.5 (at line 249); 611c616 (at line 259); v2.34.2 (at line 259); v2.34.0 (at line 259)
+  5. src/requests/auth.py:258-342  score 0.5945
+       matched in: 611c616
+       lines differ in: v2.34.0, v2.34.2 (score 0.5824); v2.33.0, v2.33.1 (score 0.5727); v2.32.5 (score 0.5727)
+ungrouped top 10 (revisions ranked directly): 2 distinct files
+     src/requests/sessions.py             0.7031  [611c616]
+     src/requests/sessions.py             0.6961  [v2.34.2]
+     src/requests/sessions.py             0.6961  [v2.34.0]
+     src/requests/sessions.py             0.6953  [v2.33.0, v2.33.1]
+     src/requests/sessions.py             0.6953  [v2.32.5]
+     src/requests/models.py               0.6706  [v2.33.0, v2.33.1]
+     src/requests/models.py               0.6706  [v2.32.5]
+     src/requests/models.py               0.6394  [611c616]
+     src/requests/models.py               0.6311  [v2.34.2]
+     src/requests/models.py               0.6210  [v2.34.0]
+
+### 'how do I configure retries'  (325 ms)
+grouped (one result per file):
+  1. src/requests/adapters.py:180-280  score 0.6101
+       matched in: 611c616
+       same lines also in: v2.34.0, v2.34.2 (at line 180)
+       lines differ in: v2.32.5 (score 0.5868); v2.33.0, v2.33.1 (score 0.5840)
+  2. src/requests/exceptions.py:1-139  score 0.5830
+       matched in: v2.33.0, v2.33.1
+       lines differ in: v2.32.5 (score 0.5807); v2.34.0, v2.34.2, 611c616 (score 0.5580)
+  3. src/requests/__init__.py:191-219  score 0.5622
+       matched in: v2.34.0, v2.34.2
+       same lines also in: 611c616 (at line 191)
+       lines differ in: v2.33.0, v2.33.1 (score 0.5254); v2.32.5 (score 0.5185)
+  4. src/requests/sessions.py:99-193  score 0.5585
+       matched in: v2.33.0, v2.33.1
+       same lines also in: v2.32.5 (at line 98)
+       lines differ in: 611c616 (score 0.5494); v2.34.2 (score 0.5488); v2.34.0 (score 0.5488)
+  5. src/requests/models.py:811-907  score 0.5562
+       matched in: 611c616
+       same lines also in: v2.34.2 (at line 809); v2.34.0 (at line 809)
+       lines differ in: v2.33.0, v2.33.1 (score 0.5414); v2.32.5 (score 0.5414)
+ungrouped top 10 (revisions ranked directly): 4 distinct files
+     src/requests/adapters.py             0.6101  [611c616]
+     src/requests/adapters.py             0.6052  [v2.34.0, v2.34.2]
+     src/requests/adapters.py             0.5868  [v2.32.5]
+     src/requests/adapters.py             0.5840  [v2.33.0, v2.33.1]
+     src/requests/exceptions.py           0.5830  [v2.33.0, v2.33.1]
+     src/requests/exceptions.py           0.5807  [v2.32.5]
+     src/requests/__init__.py             0.5622  [v2.34.0, v2.34.2]
+     src/requests/sessions.py             0.5585  [v2.33.0, v2.33.1]
+     src/requests/sessions.py             0.5585  [v2.32.5]
+     src/requests/exceptions.py           0.5580  [v2.34.0, v2.34.2, 611c616]
+
+### 'where is HTTP basic authentication implemented'  (33 ms)
+grouped (one result per file):
+  1. src/requests/auth.py:1-111  score 0.7235
+       matched in: 611c616
+       lines differ in: v2.34.0, v2.34.2 (score 0.7114); v2.32.5 (score 0.6840); v2.33.0, v2.33.1 (score 0.6807)
+  2. src/requests/models.py:587-694  score 0.6137
+       matched in: v2.33.0, v2.33.1
+       same lines also in: v2.32.5 (at line 585)
+       lines differ in: 611c616 (score 0.5872); v2.34.0 (score 0.5859); v2.34.2 (score 0.5856)
+  3. src/requests/__init__.py:1-103  score 0.6125
+       matched in: v2.33.0, v2.33.1
+       lines differ in: v2.32.5 (score 0.6123); v2.34.0, v2.34.2 (score 0.5899); 611c616 (score 0.5840)
+  4. src/requests/utils.py:1003-1093  score 0.6119
+       matched in: 611c616
+       same lines also in: v2.34.0, v2.34.2 (at line 1003)
+       lines differ in: v2.33.0 (score 0.6002); v2.32.5 (score 0.5981); v2.33.1 (score 0.5957)
+  5. tests/test_requests.py:673-767  score 0.5958
+       matched in: 611c616
+       same lines also in: v2.34.2 (at line 673); v2.34.0 (at line 673)
+       lines differ in: v2.33.1 (score 0.5801); v2.32.5 (score 0.5801); v2.33.0 (score 0.5801)
+ungrouped top 10 (revisions ranked directly): 4 distinct files
+     src/requests/auth.py                 0.7235  [611c616]
+     src/requests/auth.py                 0.7114  [v2.34.0, v2.34.2]
+     src/requests/auth.py                 0.6840  [v2.32.5]
+     src/requests/auth.py                 0.6807  [v2.33.0, v2.33.1]
+     src/requests/models.py               0.6137  [v2.32.5]
+     src/requests/models.py               0.6137  [v2.33.0, v2.33.1]
+     src/requests/__init__.py             0.6125  [v2.33.0, v2.33.1]
+     src/requests/__init__.py             0.6123  [v2.32.5]
+     src/requests/utils.py                0.6119  [v2.34.0, v2.34.2]
+     src/requests/utils.py                0.6119  [611c616]
+
+### 'parse the parameters of a Content-Type header'  (226 ms)
+grouped (one result per file):
+  1. src/requests/utils.py:375-473  score 0.6897
+       matched in: 611c616
+       same lines also in: v2.34.0, v2.34.2 (at line 375)
+       lines differ in: v2.32.5 (score 0.6817); v2.33.0 (score 0.6723); v2.33.1 (score 0.6723)
+  2. src/requests/models.py:492-598  score 0.6764
+       matched in: v2.33.0, v2.33.1
+       same lines also in: v2.32.5 (at line 490)
+       lines differ in: v2.34.2 (score 0.6552); v2.34.0 (score 0.6552); 611c616 (score 0.6514)
+  3. tests/test_utils.py:572-683  score 0.6333
+       matched in: v2.34.0, v2.34.2, 611c616
+       same lines also in: v2.33.1 (at line 572)
+       lines differ in: v2.33.0 (score 0.6329); v2.32.5 (score 0.6194)
+  4. src/requests/_types.py:93-183  score 0.6253
+       matched in: v2.34.2
+       same lines also in: 611c616 (at line 98)
+       lines differ in: v2.34.0 (score 0.6236)
+  5. tests/test_requests.py:1788-1881  score 0.5934
+       matched in: 611c616
+       same lines also in: v2.34.2 (at line 1762); v2.34.0 (at line 1762); v2.33.1 (at line 1754)
+       lines differ in: v2.33.0 (score 0.5670); v2.32.5 (score 0.5670)
+ungrouped top 10 (revisions ranked directly): 2 distinct files
+     src/requests/utils.py                0.6897  [611c616]
+     src/requests/utils.py                0.6817  [v2.32.5]
+     src/requests/models.py               0.6764  [v2.33.0, v2.33.1]
+     src/requests/models.py               0.6764  [v2.32.5]
+     src/requests/utils.py                0.6729  [v2.34.0, v2.34.2]
+     src/requests/utils.py                0.6723  [v2.33.0]
+     src/requests/utils.py                0.6723  [v2.33.1]
+     src/requests/models.py               0.6552  [v2.34.2]
+     src/requests/models.py               0.6552  [v2.34.0]
+     src/requests/models.py               0.6514  [611c616]
+
+### 'how are proxy settings read from the environment'  (112 ms)
+grouped (one result per file):
+  1. src/requests/sessions.py:743-847  score 0.7125
+       matched in: v2.34.0
+       same lines also in: v2.34.2 (at line 743); 611c616 (at line 743)
+       lines differ in: v2.32.5 (score 0.6209); v2.33.0, v2.33.1 (score 0.6139)
+  2. src/requests/utils.py:756-859  score 0.7112
+       matched in: v2.32.5
+       same lines also in: v2.33.1 (at line 753); v2.33.0 (at line 756)
+       lines differ in: v2.34.0, v2.34.2 (score 0.7046); 611c616 (score 0.6943)
+  3. tests/test_utils.py:962-977  score 0.6746
+       matched in: v2.32.5
+       same lines also in: v2.33.1 (at line 975); v2.34.0, v2.34.2, 611c616 (at line 998); v2.33.0 (at line 972)
+  4. src/requests/adapters.py:500-596  score 0.6513
+       matched in: v2.32.5
+       same lines also in: v2.33.0, v2.33.1 (at line 501)
+       lines differ in: 611c616 (score 0.6269); v2.34.0, v2.34.2 (score 0.6231)
+  5. docs/user/advanced.rst:664-747  score 0.6052
+       matched in: v2.34.0, v2.34.2, 611c616
+       same lines also in: v2.33.0, v2.33.1 (at line 663)
+       lines differ in: v2.32.5 (score 0.6002)
+ungrouped top 10 (revisions ranked directly): 4 distinct files
+     src/requests/sessions.py             0.7125  [v2.34.0]
+     src/requests/utils.py                0.7112  [v2.32.5]
+     src/requests/utils.py                0.7058  [v2.33.1]
+     src/requests/utils.py                0.7046  [v2.34.0, v2.34.2]
+     src/requests/utils.py                0.6981  [v2.33.0]
+     src/requests/utils.py                0.6943  [611c616]
+     src/requests/sessions.py             0.6809  [v2.34.2]
+     tests/test_utils.py                  0.6746  [v2.32.5]
+     src/requests/sessions.py             0.6607  [611c616]
+     src/requests/adapters.py             0.6513  [v2.32.5]
+
+### 'where does it raise an exception for 4xx and 5xx responses'  (88 ms)
+grouped (one result per file):
+  1. src/requests/models.py:811-907  score 0.6342
+       matched in: 611c616
+       same lines also in: v2.34.0 (at line 809); v2.34.2 (at line 809)
+       lines differ in: v2.33.0, v2.33.1 (score 0.5940); v2.32.5 (score 0.5940)
+  2. src/requests/exceptions.py:1-138  score 0.6195
+       matched in: v2.32.5
+       lines differ in: v2.33.0, v2.33.1 (score 0.6174); v2.34.0, v2.34.2, 611c616 (score 0.6052)
+  3. src/requests/status_codes.py:78-128  score 0.5810
+       matched in: v2.34.0, v2.34.2, 611c616
+       lines differ in: v2.32.5, v2.33.0, v2.33.1 (score 0.5742)
+  4. src/requests/auth.py:258-342  score 0.5775
+       matched in: 611c616
+       lines differ in: v2.34.0, v2.34.2 (score 0.5662); v2.33.0, v2.33.1 (score 0.5332); v2.32.5 (score 0.5332)
+  5. src/requests/sessions.py:97-183  score 0.5687
+       matched in: v2.34.2
+       same lines also in: v2.34.0 (at line 97); 611c616 (at line 97)
+       lines differ in: v2.33.0, v2.33.1 (score 0.5595); v2.32.5 (score 0.5595)
+ungrouped top 10 (revisions ranked directly): 4 distinct files
+     src/requests/models.py               0.6342  [611c616]
+     src/requests/models.py               0.6333  [v2.34.0]
+     src/requests/models.py               0.6289  [v2.34.2]
+     src/requests/exceptions.py           0.6195  [v2.32.5]
+     src/requests/exceptions.py           0.6174  [v2.33.0, v2.33.1]
+     src/requests/exceptions.py           0.6052  [v2.34.0, v2.34.2, 611c616]
+     src/requests/models.py               0.5940  [v2.32.5]
+     src/requests/models.py               0.5940  [v2.33.0, v2.33.1]
+     src/requests/status_codes.py         0.5810  [v2.34.0, v2.34.2, 611c616]
+     src/requests/auth.py                 0.5775  [611c616]
+
+### 'how are proxy settings read from the environment' in single versions
+  version v2.33.0:
+   1. src/requests/utils.py (src/requests/utils.py@cdc93ad2521c)  score 0.6981
+        851 |     return proxy
+        852 | 
+        853 | 
+        854 | def resolve_proxies(request, proxies, trust_env=True):
+        855 |     """This method takes proxy information from a request and configuration
+        856 |     input to resolve a mapping of target proxies. This will consider settings
+        857 |     such as NO_PROXY to strip proxy configurations.
+        858 | 
+   2. src/requests/adapters.py (src/requests/adapters.py@cc47222b00ae)  score 0.6342
+        589 |         return headers
+        590 | 
+        591 |     def send(
+        592 |         self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None
+        593 |     ):
+        594 |         """Sends PreparedRequest object. Returns Response object.
+        595 | 
+        596 |         :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
+  version v2.34.0:
+   1. src/requests/sessions.py (src/requests/sessions.py@06ee56705806)  score 0.7125
+        831 |     def merge_environment_settings(
+        832 |         self,
+        833 |         url: str,
+        834 |         proxies: dict[str, str] | None,
+        835 |         stream: bool | None,
+        836 |         verify: _t.VerifyType | None,
+        837 |         cert: _t.CertType,
+        838 |     ) -> dict[str, Any]:
+   2. src/requests/utils.py (src/requests/utils.py@28ce541f22ac)  score 0.7046
+        873 | def get_environ_proxies(url: str, no_proxy: str | None = None) -> dict[str, str]:
+        874 |     """
+        875 |     Return a dict of environment proxies.
+        876 | 
+        877 |     :rtype: dict
+        878 |     """
+        879 |     if should_bypass_proxies(url, no_proxy=no_proxy):
+        880 |         return {}

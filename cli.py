@@ -16,6 +16,13 @@
       and answers queries at a prompt with no reload; it picks up a re-saved index automatically.
       Test and docs files rank below code by default (--kind-penalty, default 0.05; 0 turns it off);
       --code-only leaves them out. Neither affects the apps index, whose documents are all code.
+  python cli.py index-versions <repo> (--commits C [C ...] | --last N) [--out DIR] [--chunking {windows,ast}]
+      Index several commits of a git repository into one versioned index (retrieval across versions): each
+      commit is checked out in a temporary git worktree (the repository's own working tree is not touched), and a
+      file unchanged since an already indexed commit reuses its embeddings. Running it again with more commits adds
+      them and keeps the rest. Default DIR: indexes/<folder name>-<hash8>-versions.
+      Query it like any index: one result per file, listing which versions hold the match; --version V (a tag or
+      sha prefix) searches a single version.
   python cli.py eval-apps [--limit N] [--index DIR] ...
       Real-pipeline AppsRetrieval evaluation (see eval/apps_pipeline.py).
 
@@ -170,6 +177,55 @@ def cmd_index(args) -> int:
     return 0
 
 
+def versions_index_dir(root: Path) -> Path:
+    return default_index_dir(root).with_name(default_index_dir(root).name + "-versions")
+
+
+def index_repo_versions(repo: Path, out: Path, encoder, commits: list[str] | None = None, last: int | None = None,
+                        chunking_name: str = loaders.directory.CHUNKING, header: bool = True, progress=None,
+                        note=log) -> dict:
+    """Add commits of a git repository to the versioned index at out (created if missing). Shared with web/.
+
+    commits: commit-ishes (shas, tags, HEAD...); last: also the last N first-parent commits of HEAD.
+    """
+    from index.versions import GitError, index_versions, last_commits
+    repo, out = Path(repo).resolve(), Path(out).resolve()
+    if not repo.is_dir():
+        raise IndexingError(f"{repo} is not a directory")
+    start = time.perf_counter()
+    try:
+        revs = list(commits or []) + (last_commits(repo, last) if last else [])
+        if not revs:
+            raise IndexingError("give the commits to index, or a number of recent commits")
+        existing = load_index(out) if (out / MANIFEST).exists() else None
+        index, stats = index_versions(repo, revs, encoder, chunking_config(chunking_name, encoder, header=header),
+                                      existing, progress, note)
+    except (GitError, IndexMismatchError) as e:
+        raise IndexingError(str(e)) from e
+    save_index(index, out)
+    seconds = time.perf_counter() - start
+    note(f"{stats['commits']} versions, {stats['revisions']:,} file revisions, {stats['chunks']:,} chunks stored "
+         f"({stats['chunks_if_separate']:,} if each version were indexed separately: {stats['chunks_shared_pct']}% "
+         f"shared); saved {out} in {seconds:.1f} s")
+    return {**stats, "mode": "versions", "chunks_embedded": sum(c["chunks_embedded"] for c in stats["commits_added"]),
+            "seconds": round(seconds, 1), "index": str(out)}
+
+
+def cmd_index_versions(args) -> int:
+    repo = Path(args.repo).resolve()
+    if not repo.is_dir():  # before loading the model
+        log(f"error: {repo} is not a directory")
+        return 2
+    out = (args.out or versions_index_dir(repo)).resolve()
+    try:
+        index_repo_versions(repo, out, _make_encoder(), args.commits, args.last, args.chunking,
+                            header=not args.no_header, progress=_progress("chunks"))
+    except IndexingError as e:
+        log(f"error: {e}")
+        return 2
+    return 0
+
+
 class QuerySession:
     """A loaded encoder + index + retriever, reused across queries (the model loads once).
 
@@ -220,23 +276,26 @@ class QuerySession:
         except (OSError, ValueError) as e:  # mid-save, or rebuilt with another encoder (IndexMismatchError)
             log(f"(index at {self.index_dir} could not be reloaded, still using the loaded one: {e})")
 
-    def search(self, text: str, top_k: int, code_only: bool | None = None) -> list[dict]:
+    def search(self, text: str, top_k: int, code_only: bool | None = None, version: str | None = None) -> list[dict]:
         """Ranked results as dicts. "score" is what the ranking used (similarity minus the kind penalty for test
         and docs files); "similarity" is the raw cosine similarity. snippet.focus_line is the line a display of
         SNIPPET_LINES lines should open on (retrieval.snippets.focus_offset); apps results open on line 1.
-        snippet.match_lines lists the lines holding one of the query's words (the web page marks them)."""
-        from retrieval.snippets import focus_offset, matching_lines
-        focus = self.index.source.get("kind") != "apps"  # an apps solution's first lines (its signature) identify it
-        rows = []
+        snippet.match_lines lists the lines holding one of the query's words (the web page marks them).
+
+        A versioned index gives one row per file (retrieval.versions): its best revision (or, with version, the one
+        that version holds) plus "versions", every revision of the file with its commits and score and whether it
+        contains the matched lines. version is a tag or sha prefix of an indexed commit, or None / "all".
+        ValueError if version is given for an unversioned index or names no indexed commit."""
+        from index.versions import is_versioned
         retriever = self._retriever(self.code_only if code_only is None else code_only)
+        if is_versioned(self.index):
+            return self._search_versions(retriever, text, top_k, version)
+        if version not in (None, "", "all"):
+            raise ValueError("this index has no versions (build one with: python cli.py index-versions)")
+        rows = []
         for rank, r in enumerate(retriever.search(text, top_k=top_k), 1):
             best = r.chunks[0]
             snippet = self.reader.snippet(r.doc_id, best.start_line, best.end_line)
-            focus_line, match_lines = best.start_line, []
-            if focus and snippet.status == "ok":
-                lines = snippet.text.splitlines()
-                focus_line += focus_offset(lines, text, SNIPPET_LINES)
-                match_lines = [best.start_line + i for i in matching_lines(lines, text)]
             rows.append({
                 "rank": rank,
                 "doc_id": r.doc_id,
@@ -247,8 +306,47 @@ class QuerySession:
                 "language": r.metadata.get("language"),
                 "chunks": [{"chunk_id": c.chunk_id, "start_line": c.start_line, "end_line": c.end_line,
                             "score": round(c.score, 6)} for c in r.chunks],
-                "snippet": {"status": snippet.status, "text": snippet.text, "focus_line": focus_line,
-                            "match_lines": match_lines},
+                "snippet": self._snippet_row(snippet, best.start_line, text),
+            })
+        return rows
+
+    def _snippet_row(self, snippet, start_line: int, query: str) -> dict:
+        from retrieval.snippets import focus_offset, matching_lines
+        focus_line, match_lines = start_line, []
+        if self.index.source.get("kind") != "apps" and snippet.status == "ok":  # apps: the signature identifies it
+            lines = snippet.text.splitlines()
+            focus_line += focus_offset(lines, query, SNIPPET_LINES)
+            match_lines = [start_line + i for i in matching_lines(lines, query)]
+        return {"status": snippet.status, "text": snippet.text, "focus_line": focus_line, "match_lines": match_lines}
+
+    def _search_versions(self, retriever, text: str, top_k: int, version: str | None) -> list[dict]:
+        from index.versions import resolve_version, version_label
+        from retrieval.versions import search_versions
+        sha = resolve_version(self.index, version) if version not in (None, "", "all") else None
+        labels = {c["sha"]: version_label(c) for c in self.index.source["commits"]}
+        rows = []
+        for rank, v in enumerate(search_versions(retriever, self.reader, text, top_k, sha), 1):
+            r = v.primary
+            rows.append({
+                "rank": rank,
+                "doc_id": v.path,
+                "revision": r.doc_id,
+                "score": round(r.rank_score, 6),
+                "similarity": round(r.score, 6),
+                "kind": r.kind,
+                "source_path": r.metadata.get("source_path"),
+                "language": r.metadata.get("language"),
+                "chunks": [{"chunk_id": c.chunk_id, "start_line": c.start_line, "end_line": c.end_line,
+                            "score": round(c.score, 6)} for c in r.chunks],
+                "snippet": self._snippet_row(v.snippet, r.chunks[0].start_line, text),
+                "version": sha,
+                "versions": [{
+                    "revision": h.doc_id,
+                    "commits": [{"sha": c, "label": labels.get(c, c[:7])} for c in h.commits],
+                    "score": round(h.score, 6), "similarity": round(h.similarity, 6),
+                    "start_line": h.start_line, "end_line": h.end_line, "primary": h.primary,
+                    "contains_match": h.contains_match, "match_line": h.match_line,
+                } for h in v.revisions],
             })
         return rows
 
@@ -265,6 +363,8 @@ def print_rows(rows: list[dict], as_json: bool) -> None:
         if row["score"] != row["similarity"]:  # a test or docs file, ranked below code by the kind penalty
             score += f"  ({row['kind']}: similarity {row['similarity']:.4f}, penalty {row['similarity'] - row['score']:.2f})"
         print(f"{row['rank']:>2}. {row['doc_id']}:{best['start_line']}-{best['end_line']}   {score}")
+        for line in _version_lines(row):
+            print(f"    {line}")
         status, text = row["snippet"]["status"], row["snippet"]["text"]
         if status != "ok":
             print(f"    [{status}: source {'changed since indexing; re-run index' if status == 'stale' else 'not found'}]")
@@ -279,6 +379,25 @@ def print_rows(rows: list[dict], as_json: bool) -> None:
             print(f"          ... {len(lines) - skip - SNIPPET_LINES} more lines")
         print()
     sys.stdout.flush()
+
+
+def _version_lines(row: dict) -> list[str]:
+    """For a versioned result: which versions hold the matched file, the same lines, or different lines."""
+    if "versions" not in row:
+        return []
+
+    def names(hit: dict) -> str:
+        return ", ".join(c["label"] for c in hit["commits"])
+
+    primary, others = row["versions"][0], row["versions"][1:]
+    lines = [f"matched in: {names(primary)}"]
+    same = [h for h in others if h["contains_match"]]
+    differ = [h for h in others if h["contains_match"] is False]
+    if same:
+        lines.append("same lines also in: " + "; ".join(f"{names(h)} (at line {h['match_line']})" for h in same))
+    if differ:
+        lines.append("lines differ in: " + "; ".join(f"{names(h)} (score {h['score']:.4f})" for h in differ))
+    return lines
 
 
 INTERACTIVE_HELP = """\
@@ -372,7 +491,12 @@ def cmd_query(args) -> int:
         log(f"model and index loaded in {time.perf_counter() - t0:.1f} s: "
             f"{len(session.index.documents):,} files, {len(session.index.chunks):,} chunks")
         return run_interactive(session, args.top_k, args.json, args.text)
-    print_rows(session.search(args.text, args.top_k), args.json)
+    try:
+        rows = session.search(args.text, args.top_k, version=args.version)
+    except ValueError as e:
+        log(f"error: {e}")
+        return 2
+    print_rows(rows, args.json)
     return 0
 
 
@@ -402,6 +526,17 @@ def main(argv: list[str] | None = None) -> int:
                    help="windows: token-budgeted line windows (default); ast: function/class-level chunks for "
                         "Python files, windows for everything else")
 
+    p = sub.add_parser("index-versions", help="index several commits of a git repository into one versioned index")
+    p.add_argument("repo", help="git repository (its working tree is not touched)")
+    p.add_argument("--commits", nargs="+", metavar="C", help="commits to index: shas, tags, branches, HEAD~2...")
+    p.add_argument("--last", type=int, metavar="N", help="also index the last N first-parent commits of HEAD")
+    p.add_argument("--out", type=Path, help="index directory (default: indexes/<folder name>-<hash8>-versions); "
+                                            "if it exists, the commits are added to it")
+    p.add_argument("--no-header", action="store_true",
+                   help="embed chunks without the file path / class / function header")
+    p.add_argument("--chunking", choices=("windows", "ast"), default=loaders.directory.CHUNKING,
+                   help="as for index (default windows)")
+
     p = sub.add_parser("query", help="search an index")
     p.add_argument("text", nargs="?", help="natural-language or code query (optional with --interactive)")
     p.add_argument("--index", type=Path, required=True, help="index directory")
@@ -409,6 +544,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="load the model once, then answer queries typed at a prompt (:help for commands)")
     p.add_argument("--top-k", type=int, default=10, help="number of results (default 10)")
     p.add_argument("--json", action="store_true", help="print results as JSON")
+    p.add_argument("--version", help="versioned index only: search this version (tag or sha prefix); default all")
     kind = p.add_mutually_exclusive_group()
     kind.add_argument("--code-only", action="store_true", help="leave test and docs files out of the results")
     kind.add_argument("--kind-penalty", type=float, default=DEFAULT_KIND_PENALTY,
@@ -431,6 +567,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--top-k must be >= 1")
     if args.command == "query" and args.kind_penalty < 0:
         parser.error("--kind-penalty must be >= 0")
+    if args.command == "index-versions":
+        if args.last is not None and args.last < 1:
+            parser.error("--last must be at least 1")
+        return cmd_index_versions(args)
     return cmd_index(args) if args.command == "index" else cmd_query(args)
 
 
