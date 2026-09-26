@@ -144,16 +144,17 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
 | Initial `cli.py index` | 51.8 s (embedding 35 chunks ≈ 40 s) |
 | Edit one file, then query before re-indexing | its result is flagged `[stale]` |
 | Re-index after editing one file | 14.5 s: `1 changed, 20 unchanged; 2 chunks embedded` |
-| `cli.py query`, one-shot, end to end | 11.2 s (folder index), 14.6 s (apps index, which also loads the dataset for snippets); 22–23 s re-measured on battery (see below) |
+| `cli.py query`, one-shot, end to end | 11.2 s (folder index), 14.6 s (apps index, which also loads the dataset for snippets); re-measured 26 Sep: 9.4–9.7 s (folder) and 10.6 s (apps) on mains power, 22–23 s on battery (see below) |
 | `cli.py query --interactive`, per query after the first | ~22 ms for a short query; 1.6 s for the longest AppsRetrieval problem statement (5,742 chars, truncated to 1,024 tokens) |
 
 A one-shot query's time is almost all startup: imports (transformers, loaded for the tokenizer, pulls in PyTorch
 and scikit-learn) and ~3 s to create the ONNX session; the query itself takes tens of milliseconds. The startup is
-CPU-bound, so it depends on the machine's power state: the 11.2 s above was measured on 25 Sep; on 26 Sep the
-same command took 22–23 s with the laptop on battery (Windows "Balanced" plan, CPU at 1.7 of 3.0 GHz, other
-applications running), of which ~20 s was imports. Re-indexing pays the same fixed startup plus embedding only
-the changed chunks (on battery: 54 s after editing requests' sessions.py, whose 11 chunks were re-embedded). Use `--interactive` for live
-demos: startup is paid once.
+CPU-bound, so it depends on the machine's power state. On 26 Sep, on mains power (CPU at 3.0 GHz), a one-shot
+folder query took 9.4–9.7 s, 7.3 s of it imports; on battery (Windows "Balanced" plan, CPU at 1.7 GHz, other
+applications running) the same command took 22–23 s, ~20 s of it imports. Re-indexing pays the same fixed startup
+plus embedding only the changed chunks (on battery: 54 s after editing requests' `sessions.py`, whose 11 chunks
+were re-embedded). Use `--interactive` or the web page for live demos: startup is paid once, and the web server's
+re-index of the same edit took 16.7 s.
 
 **Real-codebase check** ([full transcript](reports/scrapy_retrieval_check.md)). We indexed the whole Scrapy repository
 (654 files, 1,980 chunks, 42.8 min on CPU) and asked 10 plain-language developer questions, with answers written
@@ -176,24 +177,25 @@ but won two questions and lost two, so it stays opt-in (`--chunking ast`) and `w
 | Path | Purpose |
 |---|---|
 | `cli.py` | Command-line tool: `index`, `query`, `eval-apps` |
+| `web/` | Browser front end: `server.py` (FastAPI, model kept loaded) and `index.html` (one plain page) |
 | `records.py` | `Document` and `Chunk` record types |
 | `loaders/apps.py` | AppsRetrieval corpus as Documents (MTEB-identical text), test queries and relevance labels |
 | `loaders/directory.py` | A folder of source files as Documents (skip rules, `.gitignore`, stable path IDs) |
-| `chunking/` | `none` (whole document) and `windows` (line-aligned, token-budgeted, overlapping) chunkers |
+| `chunking/` | `none` (whole document), `windows` (line-aligned, token-budgeted, overlapping; default) and `ast` (Python functions/classes; opt-in) chunkers |
 | `embedding/onnx_encoder.py` | Shared CPU encoder: gte-modernbert-base fp32 ONNX via onnxruntime (CLS pooling, max 1024 tokens) |
 | `index/` | Index build, incremental update, fingerprint check, atomic save/load; `build_apps.py` builds `indexes/apps` |
-| `retrieval/` | Query embedding, cosine scoring, chunk → document grouping, snippets with stale detection |
+| `retrieval/` | Query embedding, cosine scoring, chunk → document grouping, snippets with stale detection and query-focused display |
 | `eval/run_apps_cpu.py` | **Submission:** MTEB evaluation of the CPU encoder, writes `appsretrieval_results.json` |
 | `eval/apps_pipeline.py`, `eval/metrics.py` | Real-pipeline AppsRetrieval evaluation and MTEB-compatible NDCG / MRR |
 | `indexes/apps/` | Prebuilt AppsRetrieval index (committed; folder indexes built with `cli.py index` stay local) |
-| `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash` (tokenizer only) |
+| `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash`, `test_ast_chunks`, `test_web` (tokenizer only) |
 | `experiments/` | Model selection and benchmark scripts (baselines, ONNX / PyTorch timing, dataset stats) and their logs in `experiments/logs/`; see [experiments/README.md](experiments/README.md) |
 | `PLAN.md` | Plan: goals, layout, step specs |
-| `reports/` | Real-codebase retrieval check on Scrapy: transcript, pre-registered answers, raw results |
+| `reports/` | Experiment reports with their scripts and raw data: the Scrapy retrieval check, AST vs windows chunking on requests, cross-encoder re-ranking and pseudo-relevance feedback on AppsRetrieval |
 | `appsretrieval_results.json` | **P0 submission:** MTEB results JSON (CPU, fp32 ONNX) |
 | `apps_pipeline_results.json` | Real-pipeline eval results with per-query NDCG@10 / MRR@10 |
 | `requirements.txt`, `constraints.txt` | Direct dependencies; full lock of every package, verified in a clean venv |
-| `Dockerfile`, `.github/workflows/docker.yml` | CPU image (offline at runtime); CI builds it and runs tests, a real query and an eval smoke test |
+| `Dockerfile`, `.github/workflows/docker.yml` | CPU image (offline at runtime); CI builds it and runs tests, a real query, the web server's API and an eval smoke test |
 
 ## Setup
 
@@ -228,6 +230,35 @@ python -c "import torch; print(torch.cuda.is_available())"   # should print True
 ## How to run
 
 With the CPU environment (`venv`) active, from the repository root:
+
+### Web page
+
+```powershell
+python -m web.server            # loads the model once, then open http://127.0.0.1:8000
+python -m web.server --port 8080 --indexes indexes --uploads uploads
+```
+
+One plain HTML page (`web/index.html`, no framework or build step) served by FastAPI (`web/server.py`), which keeps
+the model and every opened index loaded:
+
+- **Search:** pick an index (its source, document and chunk counts and chunking mode are shown), type a question or
+  paste a problem statement, set top-k and "code only". Each result shows the file, line range, score (with the raw
+  similarity and penalty for a test or docs file), and the chunk with line numbers, scrolled to the lines that
+  match the query, which are marked. A file changed since indexing is flagged **STALE** instead of showing lines
+  that may have moved. Each search shows its latency (server time and round trip).
+- **Re-index** the selected index from its source folder, incrementally: the page shows added / changed / deleted /
+  unchanged files, chunks embedded and the time taken, then re-runs the search. This is the P1 cycle (edit a file,
+  see it flagged stale, re-index, see it fresh) without a terminal. With the model already loaded, re-indexing an
+  edit to requests' `sessions.py` took 16.7 s, against 54 s for `cli.py index` (which also loads the model).
+- **Index a codebase:** a folder path on the server's machine, or a zip upload (unpacked under `uploads/`), with
+  `windows` or `ast` chunking; progress streams to the page.
+
+API (JSON): `GET /api/indexes`; `GET /api/indexes/{name}` (also loads that index); `POST /api/index` with
+`{"path": ...}`, `{"index": ...}` (re-index) or a multipart zip, streaming newline-delimited JSON events;
+`POST /api/query` with `{"index", "query", "top_k", "code_only"}`. Results are grouped by document, each with a list
+of hits carrying a `version` field (today one hit, the current version, `version: null`), so retrieval across
+versions can add hits per document without changing the response shape. One indexing job runs at a time. There is
+no authentication: run it on a trusted machine or network.
 
 ### Command-line tool
 
@@ -293,6 +324,10 @@ docker run --rm -v ${PWD}/out:/out prism-retrieval eval-apps --limit 50 --output
 
 # P0 submission: MTEB evaluation (~80 min), results JSON written to the mounted folder
 docker run --rm -v ${PWD}/out:/out --entrypoint python prism-retrieval -m eval.run_apps_cpu /out/appsretrieval_results.json
+
+# Web page on http://localhost:8000, with a folder mounted so it can be indexed and re-indexed from the page
+# (as /data/repo)
+docker run --rm -p 8000:8000 -v D:\path\to\repo:/data/repo -v prism-indexes:/app/indexes --entrypoint python prism-retrieval -m web.server --host 0.0.0.0
 ```
 
 The ONNX encoder peaks at about 3 GB of RAM during long encodes. Give Docker Desktop at least 4 GB.
@@ -306,6 +341,8 @@ python -m tests.test_retrieval
 python -m tests.test_eval
 python -m tests.test_cli
 python -m tests.test_file_hash
+python -m tests.test_ast_chunks
+python -m tests.test_web              # the web server, with a fake encoder
 python -m tests.test_onnx_parity        # loads the ONNX and PyTorch models (~3 GB RAM)
 ```
 

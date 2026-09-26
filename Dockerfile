@@ -4,6 +4,7 @@
 #
 #   docker build -t prism-retrieval .
 #   docker run --rm prism-retrieval --help
+#   docker run --rm -p 8000:8000 --entrypoint python prism-retrieval -m web.server --host 0.0.0.0   (web page)
 #
 # See README.md ("Docker") for indexing a mounted folder, interactive search and the evaluations.
 
@@ -41,6 +42,9 @@ ENV HF_HUB_OFFLINE=1 \
     HF_DATASETS_OFFLINE=1
 
 COPY . .
+
+# The web server (python -m web.server --host 0.0.0.0) listens here.
+EXPOSE 8000
 
 ENTRYPOINT ["python", "cli.py"]
 CMD ["--help"]

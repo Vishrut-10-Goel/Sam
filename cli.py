@@ -105,42 +105,68 @@ def _progress(label: str):
     return report
 
 
-def cmd_index(args) -> int:
-    root = Path(args.path).resolve()
-    if not root.is_dir():
-        log(f"error: {root} is not a directory")
-        return 2
-    out = (args.out or default_index_dir(root)).resolve()
-    start = time.perf_counter()
-    encoder = _make_encoder()
+class IndexingError(Exception):
+    """A folder could not be indexed (message says why); the CLI exits 2 with it."""
 
+
+def index_folder(root: Path, out: Path, encoder, chunking_name: str = loaders.directory.CHUNKING, header: bool = True,
+                 source_only: bool = False, rebuild: bool = False, progress=None, note=log) -> dict:
+    """Build or incrementally update the index of a folder, then save it. Shared by `cli.py index` and web/.
+
+    progress(done, total) is called while chunks are embedded; note(message) receives the progress messages the
+    CLI prints. Returns what happened: mode ("built" or "updated"), counts, chunks embedded and seconds taken.
+    """
+    root, out = Path(root).resolve(), Path(out).resolve()
+    if not root.is_dir():
+        raise IndexingError(f"{root} is not a directory")
+    start = time.perf_counter()
     skipped: Counter = Counter()
     # An index stored inside the folder it indexes must not index itself.
-    kinds = {"code"} if args.source_only else None
+    kinds = {"code"} if source_only else None
     docs = [d for d in loaders.directory.load_directory(root, kinds=kinds,
                                                         on_skip=lambda _, reason: skipped.update([reason]))
             if out not in Path(d.metadata["source_path"]).parents]
-    log(f"{root}: {len(docs):,} files" + (f"; skipped {dict(skipped)}" if skipped else ""))
-    chunking = chunking_config(args.chunking, encoder, header=not args.no_header)
+    note(f"{root}: {len(docs):,} files" + (f"; skipped {dict(skipped)}" if skipped else ""))
+    chunking = chunking_config(chunking_name, encoder, header=header)
     source = {"kind": "directory", "root": str(root)}
 
-    if (out / MANIFEST).exists() and not args.rebuild:
+    if (out / MANIFEST).exists() and not rebuild:
         try:
             index = load_index(out)
             index.check_compatible(encoder, chunking)
         except IndexMismatchError as e:
-            log(f"error: {e}\n(re-run with --rebuild to rebuild {out} from scratch)")
-            return 2
+            raise IndexingError(f"{e}\n(re-run with --rebuild to rebuild {out} from scratch)") from e
         if index.source.get("root") not in (None, str(root)):
-            log(f"note: {out} was built from {index.source['root']}; updating it to {root}")
-        index, stats = update_index(index, docs, encoder, source, _progress("chunks"))
-        log(f"updated: {stats.added} added, {stats.changed} changed, {stats.deleted} deleted, "
-            f"{stats.unchanged} unchanged; {stats.chunks_embedded} chunks embedded")
+            note(f"note: {out} was built from {index.source['root']}; updating it to {root}")
+        index, stats = update_index(index, docs, encoder, source, progress)
+        result = {"mode": "updated", "added": stats.added, "changed": stats.changed, "deleted": stats.deleted,
+                  "unchanged": stats.unchanged, "chunks_embedded": stats.chunks_embedded}
+        note(f"updated: {stats.added} added, {stats.changed} changed, {stats.deleted} deleted, "
+             f"{stats.unchanged} unchanged; {stats.chunks_embedded} chunks embedded")
     else:
-        index = build_index(docs, encoder, chunking, source, _progress("chunks"))
-        log(f"built: {len(index.documents):,} files, {len(index.chunks):,} chunks")
+        index = build_index(docs, encoder, chunking, source, progress)
+        result = {"mode": "built", "added": len(index.documents), "changed": 0, "deleted": 0, "unchanged": 0,
+                  "chunks_embedded": len(index.chunks)}
+        note(f"built: {len(index.documents):,} files, {len(index.chunks):,} chunks")
     save_index(index, out)
-    log(f"saved {out} in {time.perf_counter() - start:.1f} s")
+    seconds = time.perf_counter() - start
+    note(f"saved {out} in {seconds:.1f} s")
+    return {**result, "files": len(index.documents), "chunks": len(index.chunks), "skipped": dict(skipped),
+            "seconds": round(seconds, 1), "index": str(out)}
+
+
+def cmd_index(args) -> int:
+    root = Path(args.path).resolve()
+    if not root.is_dir():  # before loading the model
+        log(f"error: {root} is not a directory")
+        return 2
+    out = (args.out or default_index_dir(root)).resolve()
+    try:
+        index_folder(root, out, _make_encoder(), args.chunking, header=not args.no_header,
+                     source_only=args.source_only, rebuild=args.rebuild, progress=_progress("chunks"))
+    except IndexingError as e:
+        log(f"error: {e}")
+        return 2
     return 0
 
 
@@ -155,7 +181,7 @@ class QuerySession:
     def __init__(self, index_dir: Path, encoder, kind_penalty: float = DEFAULT_KIND_PENALTY, code_only: bool = False):
         self.index_dir = Path(index_dir)
         self.encoder = encoder
-        self.retriever_options = {"kind_penalty": kind_penalty, "code_only": code_only}
+        self.kind_penalty, self.code_only = kind_penalty, code_only
         self._stamp = None
         self._load()
 
@@ -167,9 +193,22 @@ class QuerySession:
         from retrieval import Retriever, SnippetReader
         stamp = self._manifest_stamp()
         index = load_index(self.index_dir, encoder=self.encoder)
-        retriever = Retriever(index, self.encoder, **self.retriever_options)
-        self.index, self.retriever, self.reader = index, retriever, SnippetReader(index)
+        self._retrievers = {self.code_only: Retriever(index, self.encoder, kind_penalty=self.kind_penalty,
+                                                      code_only=self.code_only)}
+        self.index, self.reader = index, SnippetReader(index)
         self._stamp = stamp
+
+    @property
+    def retriever(self):
+        return self._retriever(self.code_only)
+
+    def _retriever(self, code_only: bool):
+        """One Retriever per code_only setting, built on first use (the server toggles it per query)."""
+        if code_only not in self._retrievers:
+            from retrieval import Retriever
+            self._retrievers[code_only] = Retriever(self.index, self.encoder, kind_penalty=self.kind_penalty,
+                                                    code_only=code_only)
+        return self._retrievers[code_only]
 
     def refresh(self, force: bool = False) -> None:
         """Reload the index if it was re-saved since it was loaded. On failure, keep serving the loaded one."""
@@ -181,19 +220,23 @@ class QuerySession:
         except (OSError, ValueError) as e:  # mid-save, or rebuilt with another encoder (IndexMismatchError)
             log(f"(index at {self.index_dir} could not be reloaded, still using the loaded one: {e})")
 
-    def search(self, text: str, top_k: int) -> list[dict]:
+    def search(self, text: str, top_k: int, code_only: bool | None = None) -> list[dict]:
         """Ranked results as dicts. "score" is what the ranking used (similarity minus the kind penalty for test
         and docs files); "similarity" is the raw cosine similarity. snippet.focus_line is the line a display of
-        SNIPPET_LINES lines should open on (retrieval.snippets.focus_offset); apps results open on line 1."""
-        from retrieval.snippets import focus_offset
+        SNIPPET_LINES lines should open on (retrieval.snippets.focus_offset); apps results open on line 1.
+        snippet.match_lines lists the lines holding one of the query's words (the web page marks them)."""
+        from retrieval.snippets import focus_offset, matching_lines
         focus = self.index.source.get("kind") != "apps"  # an apps solution's first lines (its signature) identify it
         rows = []
-        for rank, r in enumerate(self.retriever.search(text, top_k=top_k), 1):
+        retriever = self._retriever(self.code_only if code_only is None else code_only)
+        for rank, r in enumerate(retriever.search(text, top_k=top_k), 1):
             best = r.chunks[0]
             snippet = self.reader.snippet(r.doc_id, best.start_line, best.end_line)
-            focus_line = best.start_line
+            focus_line, match_lines = best.start_line, []
             if focus and snippet.status == "ok":
-                focus_line += focus_offset(snippet.text.splitlines(), text, SNIPPET_LINES)
+                lines = snippet.text.splitlines()
+                focus_line += focus_offset(lines, text, SNIPPET_LINES)
+                match_lines = [best.start_line + i for i in matching_lines(lines, text)]
             rows.append({
                 "rank": rank,
                 "doc_id": r.doc_id,
@@ -204,7 +247,8 @@ class QuerySession:
                 "language": r.metadata.get("language"),
                 "chunks": [{"chunk_id": c.chunk_id, "start_line": c.start_line, "end_line": c.end_line,
                             "score": round(c.score, 6)} for c in r.chunks],
-                "snippet": {"status": snippet.status, "text": snippet.text, "focus_line": focus_line},
+                "snippet": {"status": snippet.status, "text": snippet.text, "focus_line": focus_line,
+                            "match_lines": match_lines},
             })
         return rows
 

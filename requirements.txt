@@ -14,3 +14,7 @@ onnxruntime==1.30.0
 numpy==2.4.6
 pathspec==1.1.1
 pytrec_eval-terrier==0.5.10
+# Browser front end (web/server.py)
+fastapi==0.141.1
+uvicorn==0.54.0
+python-multipart==0.0.32

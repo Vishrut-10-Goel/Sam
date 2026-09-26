@@ -57,3 +57,5 @@ Thumbs.db
 indexes/*
 !indexes/apps/
 !indexes/apps/*.npy
+# Zips uploaded through the web page are unpacked here (web/server.py --uploads).
+uploads/

@@ -40,6 +40,11 @@ class SnippetReader:
             self._apps = {d.id: d.text for d in load_apps(self.index.source.get("revision"))}
         return self._apps.get(doc_id)
 
+    def preload(self) -> None:
+        """Load what the first snippet would otherwise wait for (the apps dataset; nothing for file sources)."""
+        if self.index.source.get("kind") == "apps" and self._apps is None:
+            self._apps_text("")
+
     def _read(self, doc_id: str) -> str | None:
         if self.index.source.get("kind") == "apps":
             return self._apps_text(doc_id)
@@ -129,3 +134,9 @@ def focus_offset(lines: list[str], query: str, budget: int) -> int:
     while start > 0 and lines[start - 1].lstrip().startswith("@"):
         start -= 1
     return min(start, len(lines) - budget)
+
+
+def matching_lines(lines: list[str], query: str) -> list[int]:
+    """0-based indexes of the lines that contain one of the query's words (as focus_offset matches them)."""
+    query_terms = _terms(query)
+    return [i for i, line in enumerate(lines) if query_terms and _terms(line) & query_terms]

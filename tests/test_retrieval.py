@@ -200,6 +200,10 @@ def test_snippet_focus():
     # Never runs past the end of the chunk.
     tail = filler + ["def redirects():"]
     assert focus_offset(tail, "redirects", 12) == len(tail) - 12
+    # The lines the page marks: those holding a query word, identifier parts included.
+    from retrieval.snippets import matching_lines
+    assert matching_lines(lines, "how are redirects handled") == [21, 23]
+    assert matching_lines(lines, "the how is") == []
 
 
 if __name__ == "__main__":

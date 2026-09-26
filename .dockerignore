@@ -11,6 +11,8 @@ venv-*/
 indexes/*
 !indexes/apps/
 apps_pipeline_results.json
+# zips unpacked by the web server
+uploads/
 .env
 .env.*
 .vscode/

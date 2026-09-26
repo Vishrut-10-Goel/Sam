@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Retrieval</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #deded8;
+    --accent: #2f5fd0; --accent-text: #ffffff; --code-bg: #f3f3ef; --match-bg: #fdf6d8;
+    --ok: #237a3b; --warn-bg: #fde8e6; --warn: #b3261e; --badge: #ecebe6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #a09f98; --line: #34342f;
+      --accent: #7aa2ff; --accent-text: #0e1a33; --code-bg: #191917; --match-bg: #2b2818;
+      --ok: #6fcf87; --warn-bg: #3d1f1c; --warn: #ff8a80; --badge: #2c2c28;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+           display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  section, .sub, .result { min-width: 0; }
+  select { max-width: 100%; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1 1 260px; min-width: 0; }
+  input[type=text], input[type=number], select, textarea {
+    font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; }
+  textarea { width: 100%; resize: vertical; min-height: 44px; }
+  input[type=number] { width: 72px; }
+  button { font: inherit; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text);
+           border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+  .sub { border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  .sub h3 { font-size: 14px; margin: 0 0 8px; }
+  progress { width: 100%; height: 10px; }
+  .log { font: 12px/1.4 ui-monospace, Consolas, monospace; background: var(--code-bg); border-radius: 6px;
+         padding: 8px; max-height: 140px; overflow: auto; white-space: pre-wrap; margin: 8px 0 0; }
+  .info { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 10px 0; font-size: 14px; }
+  .info dt { color: var(--muted); }
+  .info dd { margin: 0; overflow-wrap: anywhere; }
+  .stat { font-weight: 600; }
+  .reindex-result { margin-top: 6px; font-size: 14px; }
+  .timing { margin: 10px 0 4px; font-size: 14px; }
+  .timing b { font-size: 16px; }
+  .result { border: 1px solid var(--line); border-radius: 8px; margin-top: 12px; overflow: hidden; }
+  .result.stale, .result.missing { border-color: var(--warn); }
+  .rhead { padding: 8px 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+  .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .path { font-family: ui-monospace, Consolas, monospace; font-weight: 600; overflow-wrap: anywhere; }
+  .lines { font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+  .score { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .badge { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--badge); }
+  .flag { background: var(--warn-bg); color: var(--warn); padding: 8px 12px; font-weight: 600; }
+  .version { font-size: 12px; color: var(--muted); padding: 4px 12px 0; }
+  .code { margin: 0; background: var(--code-bg); max-height: 320px; overflow: auto; border-top: 1px solid var(--line);
+          font: 13px/1.5 ui-monospace, Consolas, monospace; }
+  .code div { display: flex; white-space: pre; }
+  .code .ln { flex: 0 0 auto; width: 5.5em; padding: 0 10px 0 0; text-align: right; color: var(--muted);
+              user-select: none; }
+  .code .tx { flex: 1 0 auto; padding-right: 12px; }
+  .code .match { background: var(--match-bg); box-shadow: inset 3px 0 0 var(--accent); }
+  .error { color: var(--warn); }
+  .empty { padding: 12px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Code retrieval</h1>
+  <span id="model" class="muted small">connecting…</span>
+</header>
+<main>
+
+<section id="search-section">
+  <h2>Search</h2>
+  <div class="row">
+    <label for="index-select" class="muted">Index</label>
+    <select id="index-select" class="grow"></select>
+    <button id="reindex" class="secondary" title="Re-read the index's source folder and update it incrementally">Re-index</button>
+  </div>
+  <dl id="index-info" class="info"></dl>
+  <div id="reindex-progress" hidden>
+    <progress id="reindex-bar" max="1" value="0"></progress>
+    <div id="reindex-log" class="log"></div>
+  </div>
+  <div id="reindex-result" class="reindex-result"></div>
+
+  <form id="search-form" style="margin-top:12px">
+    <textarea id="query" rows="2" placeholder="Ask about the code, or paste a problem statement (Enter to search, Shift+Enter for a new line)"></textarea>
+    <div class="row" style="margin-top:8px">
+      <label>Top <input type="number" id="top-k" min="1" max="100" value="5"></label>
+      <label title="Leave test and docs files out of the results"><input type="checkbox" id="code-only"> Code only</label>
+      <span class="grow"></span>
+      <button type="submit" id="search-button">Search</button>
+    </div>
+  </form>
+  <div id="timing" class="timing"></div>
+  <div id="results"></div>
+</section>
+
+<section>
+  <h2>Index a codebase</h2>
+  <div class="split">
+    <form id="folder-form" class="sub">
+      <h3>Folder on this machine</h3>
+      <div class="row">
+        <input type="text" id="folder-path" class="grow" placeholder="D:\path\to\repo" required>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Chunking <select id="folder-chunking"><option value="windows">windows (default)</option><option value="ast">ast (Python functions/classes)</option></select></label>
+        <span class="grow"></span>
+        <button type="submit">Index folder</button>
+      </div>
+    </form>
+    <form id="zip-form" class="sub">
+      <h3>Upload a zip</h3>
+      <div class="row">
+        <input type="file" id="zip-file" accept=".zip" class="grow" required>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Chunking <select id="zip-chunking"><option value="windows">windows (default)</option><option value="ast">ast (Python functions/classes)</option></select></label>
+        <span class="grow"></span>
+        <button type="submit">Upload and index</button>
+      </div>
+    </form>
+  </div>
+  <div id="index-progress" hidden style="margin-top:12px">
+    <progress id="index-bar" max="1" value="0"></progress>
+    <div id="index-log" class="log"></div>
+  </div>
+  <div id="index-result" class="reindex-result"></div>
+</section>
+
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = text;
+  return e;
+};
+const fmt = (n) => Number(n).toLocaleString();
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+};
+let indexes = [];
+let busy = false;
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(await errorText(r));
+  return r.json();
+}
+async function errorText(r) {
+  try { const j = await r.json(); return j.detail || JSON.stringify(j); } catch { return `${r.status} ${r.statusText}`; }
+}
+
+// ---- indexes -------------------------------------------------------------------------------------------------
+async function loadIndexes(select) {
+  const data = await api("/api/indexes");
+  indexes = data.indexes;
+  $("model").textContent = data.model_load_seconds !== null
+    ? `model loaded (${data.model_load_seconds} s at startup) · ${indexes.length} indexes` : `${indexes.length} indexes`;
+  const sel = $("index-select");
+  const want = select || sel.value || store.get("index");
+  sel.replaceChildren(...indexes.map((i) => {
+    const o = el("option", null, `${i.name}  (${fmt(i.documents)} docs, ${i.chunking})`);
+    o.value = i.name;
+    return o;
+  }));
+  if (indexes.some((i) => i.name === want)) sel.value = want;
+  showInfo();
+}
+
+function current() { return indexes.find((i) => i.name === $("index-select").value); }
+
+function showInfo() {
+  const i = current();
+  const info = $("index-info");
+  info.replaceChildren();
+  $("reindex-result").textContent = "";
+  if (!i) { info.append(el("dt", null, "No indexes yet"), el("dd", null, "index a folder below")); return; }
+  store.set("index", i.name);
+  const rows = [
+    ["Source", i.source],
+    ["Documents", fmt(i.documents)],
+    ["Chunks", fmt(i.chunks)],
+    ["Chunking", (i.chunking === "none" ? "none (whole documents)" : i.chunking) + (i.header ? " + path/class/function header" : "")],
+    ["Saved", i.saved_at || ""],
+  ];
+  for (const [k, v] of rows) info.append(el("dt", null, k), el("dd", null, v));
+  $("reindex").disabled = !i.reindexable || busy;
+  $("reindex").title = i.reindexable ? "Re-read the index's source folder and update it incrementally"
+                                     : "The apps index is prebuilt from the dataset";
+  // Load the index now so the first search does not wait for it.
+  api(`/api/indexes/${encodeURIComponent(i.name)}`).then((d) => {
+    if (d.load_ms !== null) $("timing").textContent = `index loaded in ${fmt(Math.round(d.load_ms))} ms`;
+  }).catch((e) => { $("timing").replaceChildren(el("span", "error", e.message)); });
+}
+
+// Streams an indexing job's NDJSON events into a progress bar and log. Returns the final "done" event.
+async function runIndexJob(request, bar, log, box) {
+  busy = true;
+  setBusy();
+  box.hidden = false;
+  log.textContent = "";
+  bar.removeAttribute("value");
+  const started = performance.now();
+  try {
+    const r = await fetch("/api/index", request);
+    if (!r.ok) throw new Error(await errorText(r));
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "", done = null;
+    for (;;) {
+      const {value, done: end} = await reader.read();
+      if (end) break;
+      buffer += decoder.decode(value, {stream: true});
+      let nl;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const ev = JSON.parse(buffer.slice(0, nl));
+        buffer = buffer.slice(nl + 1);
+        if (ev.event === "log") log.textContent += ev.message + "\n";
+        if (ev.event === "progress") { bar.max = ev.total; bar.value = ev.done; }
+        if (ev.event === "error") throw new Error(ev.message);
+        if (ev.event === "done") done = ev;
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+    if (!done) throw new Error("indexing stopped without a result");
+    bar.max = 1; bar.value = 1;
+    done.wall_seconds = (performance.now() - started) / 1000;
+    return done;
+  } finally {
+    busy = false;
+    setBusy();
+  }
+}
+
+function setBusy() {
+  for (const b of document.querySelectorAll("#folder-form button, #zip-form button")) b.disabled = busy;
+  const i = current();
+  $("reindex").disabled = busy || !i || !i.reindexable;
+}
+
+function summary(result) {
+  const r = result;
+  const counts = r.mode === "built"
+    ? `built: ${fmt(r.files)} files, ${fmt(r.chunks)} chunks`
+    : `${fmt(r.added)} added · ${fmt(r.changed)} changed · ${fmt(r.deleted)} deleted · ${fmt(r.unchanged)} unchanged`;
+  const frag = document.createDocumentFragment();
+  frag.append(el("span", "stat", counts), el("span", null, ` · ${fmt(r.chunks_embedded)} chunks embedded · `),
+              el("span", "stat", `${r.seconds.toFixed(1)} s`));
+  return frag;
+}
+
+$("index-select").addEventListener("change", () => { $("results").replaceChildren(); $("timing").textContent = ""; showInfo(); });
+
+$("reindex").addEventListener("click", async () => {
+  const i = current();
+  if (!i) return;
+  const out = $("reindex-result");
+  out.textContent = "";
+  try {
+    const done = await runIndexJob({method: "POST", headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({index: i.name})},
+                                   $("reindex-bar"), $("reindex-log"), $("reindex-progress"));
+    await loadIndexes(i.name);
+    out.replaceChildren(el("span", null, "Re-indexed: "), summary(done.result));
+    if ($("query").value.trim()) search();  // show the refreshed results straight away
+  } catch (e) { out.replaceChildren(el("span", "error", e.message)); }
+});
+
+$("folder-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  await indexNew({method: "POST", headers: {"Content-Type": "application/json"},
+                  body: JSON.stringify({path: $("folder-path").value.trim(), chunking: $("folder-chunking").value})});
+});
+
+$("zip-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const file = $("zip-file").files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", file.name.replace(/\.zip$/i, ""));
+  form.append("chunking", $("zip-chunking").value);
+  await indexNew({method: "POST", body: form});
+});
+
+async function indexNew(request) {
+  const out = $("index-result");
+  out.textContent = "";
+  try {
+    const done = await runIndexJob(request, $("index-bar"), $("index-log"), $("index-progress"));
+    await loadIndexes(done.info.name);
+    out.replaceChildren(el("span", null, `${done.info.name}: `), summary(done.result));
+  } catch (e) { out.replaceChildren(el("span", "error", e.message)); }
+}
+
+// ---- search --------------------------------------------------------------------------------------------------
+$("search-form").addEventListener("submit", (ev) => { ev.preventDefault(); search(); });
+$("query").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); search(); }
+});
+$("code-only").addEventListener("change", () => { if ($("query").value.trim()) search(); });
+
+async function search() {
+  const i = current();
+  const q = $("query").value;
+  if (!i || !q.trim()) return;
+  $("search-button").disabled = true;
+  const started = performance.now();
+  try {
+    const data = await api("/api/query", {index: i.name, query: q, top_k: Number($("top-k").value) || 5,
+                                           code_only: $("code-only").checked});
+    const roundTrip = performance.now() - started;
+    const t = $("timing");
+    t.replaceChildren(el("b", null, `${fmt(Math.round(data.query_ms))} ms`),
+                      el("span", "muted", ` search (embed query + score ${fmt(data.index.chunks)} chunks + read snippets)`
+                                          + ` · ${fmt(Math.round(roundTrip))} ms round trip · ${data.results.length} result${data.results.length === 1 ? "" : "s"}`
+                                          + (data.load_ms !== null ? ` · index loaded first in ${fmt(Math.round(data.load_ms))} ms` : "")));
+    renderResults(data.results);
+  } catch (e) {
+    $("timing").replaceChildren(el("span", "error", e.message));
+  } finally {
+    $("search-button").disabled = false;
+  }
+}
+
+const STATUS_TEXT = {
+  stale: "STALE: this file changed since it was indexed, so these line numbers may be wrong. Re-index to refresh.",
+  missing: "MISSING: this file no longer exists (or cannot be read) at its indexed path.",
+};
+
+function renderResults(results) {
+  const box = $("results");
+  box.replaceChildren();
+  if (!results.length) { box.append(el("div", "muted empty", "No results.")); return; }
+  for (const r of results) {
+    // One card per document; one block per hit. Today a document has one hit (the current version).
+    const worst = r.hits.some((h) => h.snippet.status === "stale") ? "stale"
+                : r.hits.some((h) => h.snippet.status === "missing") ? "missing" : "ok";
+    const card = el("div", `result ${worst}`);
+    const head = el("div", "rhead");
+    const first = r.hits[0];
+    head.append(el("span", "rank", `${r.rank}.`), el("span", "path", r.doc_id),
+                el("span", "lines", `lines ${first.start_line}–${first.end_line}`));
+    if (r.kind !== "code") head.append(el("span", "badge", r.kind));
+    if (worst !== "ok") head.append(el("span", "badge error", worst));
+    const score = el("span", "score", `score ${r.score.toFixed(4)}`);
+    if (r.score !== r.similarity) {
+      score.append(el("span", "muted small", `  (${r.kind}: similarity ${r.similarity.toFixed(4)}, penalty ${(r.similarity - r.score).toFixed(2)})`));
+    }
+    head.append(score);
+    card.append(head);
+    for (const h of r.hits) {
+      if (h.version !== null) card.append(el("div", "version", `version ${h.version}`));
+      if (h.snippet.status !== "ok") { card.append(el("div", "flag", STATUS_TEXT[h.snippet.status] || h.snippet.status)); continue; }
+      card.append(codeBlock(h));
+    }
+    box.append(card);
+  }
+}
+
+// The whole chunk, scrolled to its focus line (where the query's words cluster); lines holding a query word are marked.
+function codeBlock(hit) {
+  const pre = el("div", "code");
+  const lines = hit.snippet.text.replace(/\r?\n$/, "").split(/\r?\n/);
+  const focus = hit.snippet.focus_line;
+  const matches = new Set(hit.snippet.match_lines || []);
+  let focusRow = null;
+  lines.forEach((text, k) => {
+    const n = hit.start_line + k;
+    const row = el("div", matches.has(n) ? "match" : null);
+    row.append(el("span", "ln", String(n)), el("span", "tx", text || " "));
+    if (n === focus) focusRow = row;
+    pre.append(row);
+  });
+  if (focusRow && focus > hit.start_line) {
+    requestAnimationFrame(() => { pre.scrollTop = focusRow.offsetTop - pre.offsetTop - 8; });
+  }
+  return pre;
+}
+
+loadIndexes().catch((e) => { $("model").replaceChildren(el("span", "error", `server not reachable: ${e.message}`)); });
+</script>
+</body>
+</html>

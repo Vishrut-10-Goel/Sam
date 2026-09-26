@@ -45,7 +45,7 @@ jobs:
 
       - name: Tests (no model load)
         run: |
-          for t in test_loaders_chunking test_index test_retrieval test_eval test_cli test_file_hash; do
+          for t in test_loaders_chunking test_index test_retrieval test_eval test_cli test_file_hash test_ast_chunks test_web; do
             echo "::group::$t"
             docker run --rm --network none --entrypoint python "$IMAGE" -m tests.$t
             echo "::endgroup::"
@@ -59,6 +59,40 @@ jobs:
             python cli.py query "respect gitignore negation patterns" --index /tmp/idx --top-k 2
             python cli.py query "respect gitignore negation patterns" --index /tmp/idx --top-k 1 --json \
               | python -c "import json, sys; rows = json.load(sys.stdin); assert rows and rows[0][\"snippet\"][\"status\"] == \"ok\", rows; print(\"top hit:\", rows[0][\"doc_id\"])"
+          '
+
+      - name: Web server with the real model, offline
+        run: |
+          docker run --rm --network none --entrypoint sh "$IMAGE" -c '
+            set -e
+            python -m web.server --port 8000 &
+            python - <<"PY"
+          import json, time, urllib.request
+          base = "http://127.0.0.1:8000"
+          def post(path, body):
+              req = urllib.request.Request(base + path, json.dumps(body).encode(), {"Content-Type": "application/json"})
+              return urllib.request.urlopen(req, timeout=600).read().decode()
+          for _ in range(120):
+              try:
+                  listed = json.loads(urllib.request.urlopen(base + "/api/indexes").read())
+                  break
+              except OSError:
+                  time.sleep(2)
+          else:
+              raise SystemExit("server did not start")
+          assert "Code retrieval" in urllib.request.urlopen(base + "/").read().decode()
+          names = [i["name"] for i in listed["indexes"]]
+          print("indexes:", names)
+          if "apps" in names:
+              r = json.loads(post("/api/query", {"index": "apps", "query": "return the indices of two numbers that add up to a target", "top_k": 1}))
+              print("apps top hit:", r["results"][0]["doc_id"], r["query_ms"], "ms")
+          events = [json.loads(line) for line in post("/api/index", {"path": "/app/loaders"}).splitlines()]
+          assert events[-1]["event"] == "done", events[-1]
+          name = events[-1]["info"]["name"]
+          r = json.loads(post("/api/query", {"index": name, "query": "respect gitignore negation patterns", "top_k": 1}))
+          assert r["results"][0]["hits"][0]["snippet"]["status"] == "ok", r
+          print("folder top hit:", r["results"][0]["doc_id"], r["query_ms"], "ms")
+          PY
           '
 
       - name: Real-pipeline apps eval smoke test (only if the prebuilt index is committed)

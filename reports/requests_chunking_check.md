@@ -37,8 +37,9 @@ Same as the [Scrapy check](scrapy_retrieval_check.md), with fresh questions:
 | Build time (whole repo, wall clock) | 371 s | 330 s (−11%) |
 | Query latency (model loaded) | 25–33 ms | 22–28 ms |
 
-Build times were measured one after the other on the same laptop, on battery (CPU at 1.7 of 3.0 GHz), so compare them
-with each other rather than with other timings in this repository. The first AST build attempt failed to start
+Build times were measured one after the other on the same laptop in the same session (its power state was not
+recorded, and it moved from battery to mains power at some point that afternoon), so compare them with each other
+rather than with other timings in this repository. The first AST build attempt failed to start
 (a syntax error in an unrelated edit made while the windows build ran); it was re-run with nothing else running,
 as `index_log.txt` records.
 
