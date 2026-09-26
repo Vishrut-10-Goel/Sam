@@ -127,6 +127,14 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
   with identical sanity-check similarities (0.725 matched vs 0.454 mismatched, 17/20 top-1).
 - **Building the prebuilt apps index** (`python -m index.build_apps`): 37.0 min for 8,765 solutions on CPU
   (30 MB on disk: 26.9 MB of embeddings, 3.5 MB manifest).
+- **Second retrieval passes: tested, both rejected**, so the submission is first-stage only.
+  - Cross-encoder re-ranking ([report](reports/reranking_experiment.md)), on the first 200 test queries (first stage
+    NDCG@10 0.67357): ms-marco-MiniLM-L-6 over the top 50 gives 0.14836 (RRF fusion 0.40573);
+    gte-reranker-modernbert-base over the top 10 gives 0.50657 (RRF 0.62105). Every variant makes more queries worse
+    than better.
+  - Pseudo-relevance feedback ([report](reports/prf_experiment.md)): tuned on the disjoint train split (5,000
+    queries), where all 54 settings were worse than no feedback; the best, measured once on test, gives NDCG@10
+    0.57536 vs 0.57545.
 
 **P1: retrieval across versions** (the real model on a 12-thread CPU, indexing a copy of this repository's code:
 21 files, 35 chunks):

@@ -1,0 +1,2 @@
+test first stage (check): NDCG@10 0.57545  MRR@10 0.52798
+TEST with k=2 alpha=0.05: NDCG@10 0.57536 (-0.00009)  MRR@10 0.52795 (-0.00003)  queries better/worse 119/118  -> REJECT
