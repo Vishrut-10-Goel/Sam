@@ -158,6 +158,11 @@ chunk) put the right file in the top 3 for **10/10** (MRR 0.867), rescuing the v
 is a small sample and the penalty was chosen after seeing them; details in the report. Neither fix touches the
 apps path (P0 results are unchanged).
 
+**AST chunking vs line windows** ([report](reports/requests_chunking_check.md)). On 10 fresh questions over
+psf/requests, answers pre-registered from the source: a tie on every measure (strict top-1 7/10, right file first
+8/10, in the top 3 10/10, MRR 0.900 for both). AST cites tighter spans (median 30 vs 83 lines) and builds 11% faster
+but won two questions and lost two, so it stays opt-in (`--chunking ast`) and `windows` stays the default.
+
 ## Repository structure
 
 | Path | Purpose |
@@ -223,8 +228,8 @@ With the CPU environment (`venv`) active, from the repository root:
 # incrementally: only new and changed files are re-embedded. --rebuild starts from scratch.
 # --source-only skips test and docs files (faster on large repos); --no-header embeds chunks without the
 # file path / class / function header.
-# --chunking ast (experimental, opt-in) splits Python files at function/class boundaries (~200-500 tokens)
-# instead of 1024-token line windows; other files keep windows. Not yet measured for retrieval quality.
+# --chunking ast (opt-in) splits Python files at function/class boundaries (~200-500 tokens) instead of
+# 1024-token line windows; other files keep windows. Measured as a tie with windows (reports/requests_chunking_check.md).
 python cli.py index D:\path\to\repo
 python cli.py index D:\path\to\repo --out indexes\myrepo
 

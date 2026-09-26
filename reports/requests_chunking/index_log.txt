@@ -1,0 +1,12 @@
+== windows start 18:22:45
+D:\prism-demo\requests: 120 files; skipped {'empty': 3, 'binary': 5, 'too_large': 1, 'minified': 1}
+built: 120 files, 319 chunks
+saved D:\prism-hackathon\indexes\eval-requests-windows in 369.5 s
+INDEX_TIME windows 371 s
+(the first ast attempt, at 18:28:56, failed to start on a syntax error in a cli.py edit made while
+ the windows build ran; re-run below after the fix, with no other work running)
+== ast start 18:30:09
+D:\prism-demo\requests: 120 files; skipped {'empty': 3, 'binary': 5, 'too_large': 1, 'minified': 1}
+built: 120 files, 555 chunks
+saved D:\prism-hackathon\indexes\eval-requests-ast in 319.7 s
+INDEX_TIME ast 330 s
