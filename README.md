@@ -86,6 +86,12 @@ with line ranges) → `cli.py`.
     and `sum` are also available.
   - Snippets are read from the source and checked against the indexed content hash. A file that changed since indexing
     is reported **stale**, and a deleted one **missing**, rather than showing lines that may have moved.
+  - The printed score is the one results were ranked on. For a test or docs file ranked below code, the raw
+    similarity and the penalty are shown next to it, e.g. `score 0.6268  (docs: similarity 0.6768, penalty 0.05)`.
+  - A folder chunk runs to ~100 lines and a result shows 12, so the snippet opens on the part of the chunk that
+    matches the query's words (identifiers split into parts, rare words weighted up, moved back to the enclosing
+    `def`/`class`/`function`), with `... N lines above` / `... N more lines` around it. Display only: ranking is
+    unchanged. Apps results open on line 1, where a solution's signature is.
 
 ### Evaluation
 
@@ -130,12 +136,16 @@ AppsRetrieval test split (3,765 queries, 8,765-solution corpus). CPU runs are on
 | Initial `cli.py index` | 51.8 s (embedding 35 chunks ≈ 40 s) |
 | Edit one file, then query before re-indexing | its result is flagged `[stale]` |
 | Re-index after editing one file | 14.5 s: `1 changed, 20 unchanged; 2 chunks embedded` |
-| `cli.py query`, one-shot, end to end | 11.2 s (folder index), 14.6 s (apps index, which also loads the dataset for snippets) |
+| `cli.py query`, one-shot, end to end | 11.2 s (folder index), 14.6 s (apps index, which also loads the dataset for snippets); 22–23 s re-measured on battery (see below) |
 | `cli.py query --interactive`, per query after the first | ~22 ms for a short query; 1.6 s for the longest AppsRetrieval problem statement (5,742 chars, truncated to 1,024 tokens) |
 
-A one-shot query's time is almost all startup: about 7 s of imports (transformers pulls in PyTorch and
-scikit-learn) and 3 s to create the ONNX session. Re-indexing pays the same fixed ~10 s plus embedding only the
-changed chunks. Use `--interactive` for live demos: startup is paid once.
+A one-shot query's time is almost all startup: imports (transformers, loaded for the tokenizer, pulls in PyTorch
+and scikit-learn) and ~3 s to create the ONNX session; the query itself takes tens of milliseconds. The startup is
+CPU-bound, so it depends on the machine's power state: the 11.2 s above was measured on 25 Sep; on 26 Sep the
+same command took 22–23 s with the laptop on battery (Windows "Balanced" plan, CPU at 1.7 of 3.0 GHz, other
+applications running), of which ~20 s was imports. Re-indexing pays the same fixed startup plus embedding only
+the changed chunks (on battery: 54 s after editing requests' sessions.py, whose 11 chunks were re-embedded). Use `--interactive` for live
+demos: startup is paid once.
 
 **Real-codebase check** ([full transcript](reports/scrapy_retrieval_check.md)). We indexed the whole Scrapy repository
 (654 files, 1,980 chunks, 42.8 min on CPU) and asked 10 plain-language developer questions, with answers written

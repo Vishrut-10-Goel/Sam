@@ -36,7 +36,7 @@ import loaders.directory
 from index import IndexMismatchError, build_index, chunking_config, load_index, save_index, update_index
 from index.storage import MANIFEST
 
-SNIPPET_LINES = 12  # lines of the best chunk shown per text result
+SNIPPET_LINES = 12  # lines of the best chunk shown per text result, starting at its focus line
 # Subtracted from test and docs files' scores before ranking. On the pre-registered Scrapy questions
 # (reports/scrapy_retrieval_check.md) any value from 0.05 up took strict top-1 from 5/10 to 8/10.
 DEFAULT_KIND_PENALTY = 0.05
@@ -182,19 +182,29 @@ class QuerySession:
             log(f"(index at {self.index_dir} could not be reloaded, still using the loaded one: {e})")
 
     def search(self, text: str, top_k: int) -> list[dict]:
+        """Ranked results as dicts. "score" is what the ranking used (similarity minus the kind penalty for test
+        and docs files); "similarity" is the raw cosine similarity. snippet.focus_line is the line a display of
+        SNIPPET_LINES lines should open on (retrieval.snippets.focus_offset); apps results open on line 1."""
+        from retrieval.snippets import focus_offset
+        focus = self.index.source.get("kind") != "apps"  # an apps solution's first lines (its signature) identify it
         rows = []
         for rank, r in enumerate(self.retriever.search(text, top_k=top_k), 1):
             best = r.chunks[0]
             snippet = self.reader.snippet(r.doc_id, best.start_line, best.end_line)
+            focus_line = best.start_line
+            if focus and snippet.status == "ok":
+                focus_line += focus_offset(snippet.text.splitlines(), text, SNIPPET_LINES)
             rows.append({
                 "rank": rank,
                 "doc_id": r.doc_id,
-                "score": round(r.score, 6),
+                "score": round(r.rank_score, 6),
+                "similarity": round(r.score, 6),
+                "kind": r.kind,
                 "source_path": r.metadata.get("source_path"),
                 "language": r.metadata.get("language"),
                 "chunks": [{"chunk_id": c.chunk_id, "start_line": c.start_line, "end_line": c.end_line,
                             "score": round(c.score, 6)} for c in r.chunks],
-                "snippet": {"status": snippet.status, "text": snippet.text},
+                "snippet": {"status": snippet.status, "text": snippet.text, "focus_line": focus_line},
             })
         return rows
 
@@ -207,16 +217,22 @@ def print_rows(rows: list[dict], as_json: bool) -> None:
         print("no results")
     for row in rows:
         best = row["chunks"][0]
-        print(f"{row['rank']:>2}. {row['doc_id']}:{best['start_line']}-{best['end_line']}   score {row['score']:.4f}")
+        score = f"score {row['score']:.4f}"
+        if row["score"] != row["similarity"]:  # a test or docs file, ranked below code by the kind penalty
+            score += f"  ({row['kind']}: similarity {row['similarity']:.4f}, penalty {row['similarity'] - row['score']:.2f})"
+        print(f"{row['rank']:>2}. {row['doc_id']}:{best['start_line']}-{best['end_line']}   {score}")
         status, text = row["snippet"]["status"], row["snippet"]["text"]
         if status != "ok":
             print(f"    [{status}: source {'changed since indexing; re-run index' if status == 'stale' else 'not found'}]")
             continue
         lines = text.splitlines()
-        for i, line in enumerate(lines[:SNIPPET_LINES]):
+        skip = row["snippet"]["focus_line"] - best["start_line"]
+        if skip:
+            print(f"          ... {skip} lines above")
+        for i, line in enumerate(lines[skip:skip + SNIPPET_LINES], skip):
             print(f"    {best['start_line'] + i:>5} | {line}")
-        if len(lines) > SNIPPET_LINES:
-            print(f"          ... {len(lines) - SNIPPET_LINES} more lines")
+        if len(lines) > skip + SNIPPET_LINES:
+            print(f"          ... {len(lines) - skip - SNIPPET_LINES} more lines")
         print()
     sys.stdout.flush()
 

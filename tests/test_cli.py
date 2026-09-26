@@ -268,6 +268,14 @@ def test_source_only_header_default_and_code_only():
         code, stdout, _ = _run("query", "anything", "--index", out, "--top-k", 10, "--code-only", "--json")
         assert code == 0 and {r["doc_id"] for r in json.loads(stdout)} == {"pkg/mod0.py", "pkg/mod1.py", "pkg/mod2.py"}
         assert _run("query", "x", "--index", out, "--kind-penalty", -1)[0] == 2
+        # Printed scores are the ones ranked on; a penalised test or docs file also shows its raw similarity.
+        code, stdout, _ = _run("query", "anything", "--index", out, "--top-k", 10, "--kind-penalty", 0.5, "--json")
+        rows = json.loads(stdout)
+        assert [r["score"] for r in rows] == sorted((r["score"] for r in rows), reverse=True)
+        penalised = [r for r in rows if r["kind"] != "code"]
+        assert penalised and all(abs(r["similarity"] - r["score"] - 0.5) < 1e-5 for r in penalised)
+        code, stdout, _ = _run("query", "anything", "--index", out, "--top-k", 10, "--kind-penalty", 0.5)
+        assert "(test: similarity " in stdout and ", penalty 0.50)" in stdout, stdout
         code, _, err = _run("index", root, "--out", Path(tmp, "src"), "--source-only")
         manifest = json.loads(Path(tmp, "src", "manifest.json").read_text(encoding="utf-8"))
         assert code == 0 and sorted(manifest["documents"]) == ["pkg/mod0.py", "pkg/mod1.py", "pkg/mod2.py"], err

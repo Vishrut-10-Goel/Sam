@@ -10,8 +10,9 @@ For unchunked indexes (apps: one chunk per document) all three give the chunk sc
 
 File kinds (loaders.directory.file_kind): on plain-language questions, docs (prose, like the question) and tests
 (which repeat the implementation's vocabulary) tend to outrank the implementation. kind_penalty subtracts a fixed
-amount from test and docs files' scores before ranking; code_only drops them. Reported scores stay the raw
-cosine similarities. Apps documents (ids like d123) always classify as code, so neither option affects apps.
+amount from test and docs files' scores before ranking; code_only drops them. DocResult.score stays the raw cosine
+similarity (what the evaluation uses); DocResult.rank_score is the score the results were ordered by (similarity
+minus the penalty). Apps documents (ids like d123) always classify as code, so neither option affects apps.
 """
 from __future__ import annotations
 
@@ -43,6 +44,8 @@ class DocResult:
     score: float
     chunks: list[ChunkHit]  # the document's best chunks, best first (at most chunks_per_doc)
     metadata: dict
+    rank_score: float  # what the ranking used: score minus the kind penalty (== score for code files)
+    kind: str  # "code", "test" or "docs" (loaders.directory.file_kind)
 
 
 class Retriever:
@@ -78,7 +81,8 @@ class Retriever:
         self._embeddings = index.embeddings[self._order]  # rows in grouped order
 
         # Per-document score adjustment by file kind: 0 for code, -kind_penalty for tests/docs (-inf: dropped).
-        is_code = np.array([file_kind(d) == "code" for d in doc_ids], dtype=bool)
+        self._kinds = [file_kind(d) for d in doc_ids]
+        is_code = np.array([k == "code" for k in self._kinds], dtype=bool)
         other = -np.inf if code_only else -float(kind_penalty)
         self._adjust = np.where(is_code, 0.0, other).astype(np.float32)
 
@@ -115,7 +119,7 @@ class Retriever:
     def _top_docs(
         self, chunk_scores: np.ndarray, doc_scores: np.ndarray, ranking_scores: np.ndarray, top_k: int
     ) -> list[DocResult]:
-        """Rank by ranking_scores (kind-adjusted); report the raw doc_scores."""
+        """Rank by ranking_scores (kind-adjusted); report both them and the raw doc_scores."""
         k = min(top_k, int(np.isfinite(ranking_scores).sum()))
         if k <= 0:
             return []
@@ -131,5 +135,6 @@ class Retriever:
                 row = self.index.chunks[self._order[first + j]]
                 hits.append(ChunkHit(row.chunk_id, row.start_line, row.end_line, float(seg[j])))
             doc_id = self._doc_ids[d]
-            out.append(DocResult(doc_id, float(doc_scores[d]), hits, self.index.documents[doc_id].metadata))
+            out.append(DocResult(doc_id, float(doc_scores[d]), hits, self.index.documents[doc_id].metadata,
+                                 float(ranking_scores[d]), self._kinds[d]))
         return out

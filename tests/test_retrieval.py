@@ -159,7 +159,10 @@ def test_kind_penalty_and_code_only():
     assert [r.doc_id for r in raw] == ["docs/guide.rst", "tests/test_retry.py", "pkg/retry.py", "README.md"]
     weighted = Retriever(_kinds_index(), enc, kind_penalty=0.15).search("q")
     assert [r.doc_id for r in weighted][:2] == ["pkg/retry.py", "docs/guide.rst"]
-    assert _ranking(weighted)[0] == ("pkg/retry.py", 0.78)  # reported scores stay raw cosine
+    assert _ranking(weighted)[0] == ("pkg/retry.py", 0.78)  # .score stays the raw cosine
+    # .rank_score is what was ranked on, so it is non-increasing down the list even where .score is not.
+    assert [(r.kind, round(r.rank_score, 4)) for r in weighted][:2] == [("code", 0.78), ("docs", 0.75)]
+    assert all(x.rank_score >= y.rank_score for x, y in zip(weighted, weighted[1:]))
     only = Retriever(_kinds_index(), enc, code_only=True).search("q", top_k=10)
     assert [r.doc_id for r in only] == ["pkg/retry.py"]
     try:
@@ -176,6 +179,28 @@ def test_kind_options_do_not_affect_apps_ids():
     base = _ranking(Retriever(index, enc).search("q"))
     assert _ranking(Retriever(index, enc, kind_penalty=0.5).search("q")) == base
     assert _ranking(Retriever(index, enc, code_only=True).search("q")) == base
+
+def test_snippet_focus():
+    from retrieval.snippets import focus_offset
+    filler = [f"    x{i} = {i}" for i in range(40)]
+    lines = filler[:20] + ["", "def resolve_redirects(self, resp):", "    # follow the Location header",
+                           "    url = self.get_redirect_target(resp)"] + filler[20:]
+    # Opens on the definition matching the query, not on line 1.
+    assert focus_offset(lines, "how are redirects handled", 12) == 21
+    # Decorators stay with their definition.
+    decorated = lines[:21] + ["@property"] + lines[21:]
+    assert focus_offset(decorated, "how are redirects handled", 12) == 21
+    # Parts of identifiers match: maxRetries / max_retries <- "retries".
+    assert focus_offset(filler[:30] + ["    self.max_retries = Retry(0)"] + filler, "configure retries", 12) == 30
+    # No reason to move: the first lines already hold the best match, or nothing matches, or it fits.
+    assert focus_offset(lines[21:] + filler, "redirects", 12) == 0
+    assert focus_offset(lines, "unrelated words entirely", 12) == 0
+    assert focus_offset(lines, "the how is", 12) == 0  # stopwords only
+    assert focus_offset(lines[:10], "redirects", 12) == 0
+    # Never runs past the end of the chunk.
+    tail = filler + ["def redirects():"]
+    assert focus_offset(tail, "redirects", 12) == len(tail) - 12
+
 
 if __name__ == "__main__":
     tests = [(name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
