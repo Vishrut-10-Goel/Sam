@@ -21,8 +21,6 @@ snippets. On the AppsRetrieval test split it scores **NDCG@10 0.57545 / MRR@10 0
 
 ## Hackathon goals
 
-See [PLAN.md](PLAN.md) for the full plan.
-
 - **P0 — Retrieval accuracy:** NDCG@10 and MRR@10 on the AppsRetrieval test split, submitted as the MTEB results
   JSON (`appsretrieval_results.json`, produced by `python -m eval.run_apps_cpu`).
 - **P1 — Retrieval across versions:** incremental index updates (only new or changed files are re-embedded) and
@@ -64,7 +62,9 @@ with line ranges) → `cli.py`.
     MTEB builds it for encoding (`"{title} {text}".strip()`). 3,687 raw solutions carry surrounding whitespace, so
     this is required to reproduce MTEB's number.
   - `loaders/directory.py` yields one Document per text file. IDs are root-relative forward-slash paths, stable across
-    re-indexing.
+    re-indexing (never derived from list position or walk order, which incremental updates depend on).
+  - Every text file is indexed rather than an extension allow-list, which would silently drop file types a general
+    system should handle. Each file is classified by its path as code, test or docs, for ranking.
   - It skips `.git`, `node_modules`, `venv`, `.venv`, `__pycache__`, `dist` and `build`, anything a `.gitignore`
     excludes (nested files and `!` negation are supported), symlinks, files over 1 MB, binaries, non-UTF-8 files,
     empty files and minified files.
@@ -72,6 +72,11 @@ with line ranges) → `cli.py`.
   - Apps solutions are embedded whole: relevance labels point at whole solutions.
   - Folder files are split into windows of whole lines that fit the encoder's 1024 tokens (special tokens included),
     measured with its own tokenizer, with 128 tokens of overlap. Results can therefore cite exact line numbers.
+  - Each folder chunk is embedded with a **context header**: its file path and the Python classes and functions it
+    overlaps (64 tokens reserved). The cited text is the source lines only.
+  - `--chunking ast` (opt-in) splits Python files at function and class boundaries instead (~200–500 tokens; small
+    neighbours merged, large classes split per method, oversized units fall back to line windows). It measured as a
+    tie with windows, so windows stays the default.
 - **Index** (`index/`)
   - Stores the embedding matrix, a row-aligned chunk table (`chunk_id, doc_id, start_line, end_line`), and a manifest
     mapping `doc_id` to content hash, chunk ids and metadata.
@@ -80,10 +85,16 @@ with line ranges) → `cli.py`.
   - **Atomic saves:** data files are written under generation-numbered names, then `manifest.json` is swapped in with
     `os.replace`. A crash leaves either the old index or the new one, never a mix.
   - Data files are checksummed in the manifest and verified on load.
+  - The prebuilt apps index is committed (`indexes/apps`, ~30 MB). Git stores content, so every committed rebuild adds
+    ~27 MB to history: it is re-committed only when the corpus or the encoder changes.
 - **Retrieval** (`retrieval/`)
   - Cosine similarity between the query and every chunk.
   - Chunk scores are grouped into document scores by **max**: a file is as relevant as its best-matching part. `mean`
     and `sum` are also available.
+  - **File kinds:** on plain-language questions, docs (prose, like the question) and tests (which repeat the
+    implementation's vocabulary) tend to outrank the implementation, so test and docs files have 0.05 subtracted
+    before ranking (`--kind-penalty`), or are dropped (`--code-only`). Apps documents are all code, so P0 is
+    unaffected.
   - Snippets are read from the source and checked against the indexed content hash. A file that changed since indexing
     is reported **stale**, and a deleted one **missing**, rather than showing lines that may have moved.
   - The printed score is the one results were ranked on. For a test or docs file ranked below code, the raw
@@ -103,6 +114,11 @@ with line ranges) → `cli.py`.
     corpus and tie exactly.
   - Our NDCG is tested against pytrec_eval, and our MRR against MTEB's own implementation.
   - A full run compares itself with the MTEB JSON to 5 decimals.
+- **How changes are measured.** Folder-retrieval changes are measured on questions whose answers (file and line span)
+  were written down from the source before retrieval ran, and questions used to choose a setting are not reused to
+  judge it: the Scrapy questions chose the kind penalty, so AST chunking was judged on fresh requests questions.
+  AppsRetrieval second passes are tuned on the disjoint train split and measured once on test; the submission JSON
+  stays first-stage only unless a second pass wins there.
 
 ## Results
 
@@ -190,7 +206,6 @@ but won two questions and lost two, so it stays opt-in (`--chunking ast`) and `w
 | `indexes/apps/` | Prebuilt AppsRetrieval index (committed; folder indexes built with `cli.py index` stay local) |
 | `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash`, `test_ast_chunks`, `test_web` (tokenizer only) |
 | `experiments/` | Model selection and benchmark scripts (baselines, ONNX / PyTorch timing, dataset stats) and their logs in `experiments/logs/`; see [experiments/README.md](experiments/README.md) |
-| `PLAN.md` | Plan: goals, layout, step specs |
 | `reports/` | Experiment reports with their scripts and raw data: the Scrapy retrieval check, AST vs windows chunking on requests, cross-encoder re-ranking and pseudo-relevance feedback on AppsRetrieval |
 | `appsretrieval_results.json` | **P0 submission:** MTEB results JSON (CPU, fp32 ONNX) |
 | `apps_pipeline_results.json` | Real-pipeline eval results with per-query NDCG@10 / MRR@10 |

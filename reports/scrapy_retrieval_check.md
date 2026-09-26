@@ -68,7 +68,8 @@ mentions downloader slots. Net: no change at top-1, better recall. With ten ques
 so the honest reading is "helps recall, neutral at top-1", at the cost of ~5% more chunks.
 
 **Still wrong:** Q6 and Q10 have the right file at #3, not #1. Neither is obviously broken, so function-level (AST)
-chunking stays the next step rather than part of this change (see PLAN.md).
+chunking stays the next step rather than part of this change (since measured on fresh questions:
+[requests_chunking_check.md](requests_chunking_check.md), a tie with windows).
 
 ## Queries (baseline run)
 
