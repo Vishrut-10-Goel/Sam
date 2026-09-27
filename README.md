@@ -207,13 +207,13 @@ but won two questions and lost two, so it stays opt-in (`--chunking ast`) and `w
 | `chunking/` | `none` (whole document), `windows` (line-aligned, token-budgeted, overlapping; default) and `ast` (Python functions/classes; opt-in) chunkers |
 | `embedding/onnx_encoder.py` | Shared CPU encoder: gte-modernbert-base fp32 ONNX via onnxruntime (CLS pooling, max 1024 tokens) |
 | `index/` | Index build, incremental update, fingerprint check, atomic save/load; `versions.py` versioned (git) indexes; `build_apps.py` builds `indexes/apps` |
-| `retrieval/` | Query embedding, cosine scoring, chunk → document grouping, snippets with stale detection and query-focused display |
+| `retrieval/` | Query embedding, cosine scoring, chunk → document grouping, snippets with stale detection and query-focused display; `versions.py` groups a versioned index's revisions into one result per file |
 | `eval/run_apps_cpu.py` | **Submission:** MTEB evaluation of the CPU encoder, writes `appsretrieval_results.json` |
 | `eval/apps_pipeline.py`, `eval/metrics.py` | Real-pipeline AppsRetrieval evaluation and MTEB-compatible NDCG / MRR |
 | `indexes/apps/` | Prebuilt AppsRetrieval index (committed; folder indexes built with `cli.py index` stay local) |
 | `tests/` | Tests: `test_onnx_parity` (loads the model), and `test_loaders_chunking`, `test_index`, `test_retrieval`, `test_eval`, `test_cli`, `test_file_hash`, `test_ast_chunks`, `test_versions`, `test_web` (tokenizer only) |
 | `experiments/` | Model selection and benchmark scripts (baselines, ONNX / PyTorch timing, dataset stats) and their logs in `experiments/logs/`; see [experiments/README.md](experiments/README.md) |
-| `reports/` | Experiment reports with their scripts and raw data: the Scrapy retrieval check, AST vs windows chunking on requests, cross-encoder re-ranking and pseudo-relevance feedback on AppsRetrieval |
+| `reports/` | Experiment reports with their scripts and raw data: the Scrapy retrieval check, AST vs windows chunking on requests, cross-encoder re-ranking and pseudo-relevance feedback on AppsRetrieval, and retrieval across versions on requests (`versions_check.md`, `versions/`) |
 | `appsretrieval_results.json` | **P0 submission:** MTEB results JSON (CPU, fp32 ONNX) |
 | `apps_pipeline_results.json` | Real-pipeline eval results with per-query NDCG@10 / MRR@10 |
 | `requirements.txt`, `constraints.txt` | Direct dependencies; full lock of every package, verified in a clean venv |
@@ -273,14 +273,20 @@ the model and every opened index loaded:
   see it flagged stale, re-index, see it fresh) without a terminal. With the model already loaded, re-indexing an
   edit to requests' `sessions.py` took 16.7 s, against 54 s for `cli.py index` (which also loads the model).
 - **Index a codebase:** a folder path on the server's machine, or a zip upload (unpacked under `uploads/`), with
-  `windows` or `ast` chunking; progress streams to the page.
+  `windows` or `ast` chunking; progress streams to the page. For a git repository, a "Versions" entry (`last 5`, or
+  `v2.33.0 v2.34.2 HEAD`) builds a versioned index of those commits instead.
+- **Versioned indexes:** a version selector searches all versions or one. Each result is one file and shows the
+  version it matched in, the versions holding the same lines (and at which line), and those whose lines differ, with
+  their scores. "Add HEAD" indexes the repository's current HEAD as a new version and keeps the others.
 
-API (JSON): `GET /api/indexes`; `GET /api/indexes/{name}` (also loads that index); `POST /api/index` with
-`{"path": ...}`, `{"index": ...}` (re-index) or a multipart zip, streaming newline-delimited JSON events;
-`POST /api/query` with `{"index", "query", "top_k", "code_only"}`. Results are grouped by document, each with a list
-of hits carrying a `version` field (today one hit, the current version, `version: null`), so retrieval across
-versions can add hits per document without changing the response shape. One indexing job runs at a time. There is
-no authentication: run it on a trusted machine or network.
+API (JSON): `GET /api/indexes` (a versioned index also lists its versions); `GET /api/indexes/{name}` (also loads
+that index); `POST /api/index` with `{"path": ...}`, `{"path": ..., "versions": "last 5"}`, `{"index": ...}`
+(re-index; for a versioned index, add HEAD) or a multipart zip, streaming newline-delimited JSON events;
+`POST /api/query` with `{"index", "query", "top_k", "code_only", "version"}`. Results are grouped by document, each
+with a list of hits. For a folder index that is one hit, the best chunk, with `version: null`. For a versioned index
+it is one hit per revision of the file: the matched one first, with the snippet, then the others with their commits,
+score, `contains_match` and `match_line`. One indexing job runs at a time. There is no authentication: run it on a
+trusted machine or network.
 
 ### Command-line tool
 
@@ -308,7 +314,8 @@ python cli.py query --index indexes\myrepo --interactive
 
 # Versioned index of several commits of a git repo (its working tree is not touched); query it like any index,
 # optionally with --version <tag or sha prefix>
-python cli.py index-versions D:\path	oepo --last 5
+python cli.py index-versions D:\path	o
+epo --last 5
 
 # Search the prebuilt AppsRetrieval index
 python cli.py query "count the ways to climb n stairs taking 1 or 2 steps" --index indexes\apps
