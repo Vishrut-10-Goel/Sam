@@ -13,6 +13,14 @@ incremental updates as code changes, and answers queries from a command-line too
 snippets. On the AppsRetrieval test split it scores **NDCG@10 0.57545 / MRR@10 0.52798 on CPU** (MTEB), against
 0.0660 / 0.0558 for the all-MiniLM-L6-v2 baseline. That matches the 0.5754 NDCG@10 its model card reports.
 
+## Submission
+
+- **Demo video:** https://drive.google.com/file/d/1Q7Fo2h1sU-zAU98qJM5UCKXENwmgg-t8/view?usp=sharing
+- **Presentation:** [`SRMIST_Doomed_Submission.pptx`](SRMIST_Doomed_Submission.pptx)
+- **AI disclosure:** [`SRMIST_Doomed_AI_Disclosure.docx`](SRMIST_Doomed_AI_Disclosure.docx)
+- **Results JSON:** [`appsretrieval_results.json`](appsretrieval_results.json), attached to release
+  [`PRISM_GENAI_HACKATHON_Y2026`](https://github.com/Vishrut-10-Goel/Sam/releases/tag/PRISM_GENAI_HACKATHON_Y2026)
+
 ## Problem
 
 - **Queries:** full competitive-programming problem statements (story, input/output spec, examples). Mean ≈ 500 tokens, longest ≈ 1,700.
