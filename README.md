@@ -322,8 +322,7 @@ python cli.py query --index indexes\myrepo --interactive
 
 # Versioned index of several commits of a git repo (its working tree is not touched); query it like any index,
 # optionally with --version <tag or sha prefix>
-python cli.py index-versions D:\path	o
-epo --last 5
+python cli.py index-versions D:\path\to\repo --last 5
 
 # Search the prebuilt AppsRetrieval index
 python cli.py query "count the ways to climb n stairs taking 1 or 2 steps" --index indexes\apps
@@ -426,9 +425,10 @@ Models and datasets download from HuggingFace on first run and are cached in `~/
 
 ## Team
 
-| Name | Role | GitHub |
-|---|---|---|
-| _to be added_ | | |
+Team Doomed, SRM Institute of Science and Technology, Kattankulathur.
+
+- Vishrut Goel ([github.com/Vishrut-10-Goel](https://github.com/Vishrut-10-Goel))
+- Mansi Dabbiru
 
 ## License
 
